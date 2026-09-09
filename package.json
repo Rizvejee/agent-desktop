@@ -1,0 +1,29 @@
+{
+  "name": "agent-desktop",
+  "version": "1.0.0",
+  "description": "My Personal AI Coding Agent",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:react\" \"wait-on http://localhost:3000 && npm run dev:electron\"",
+    "dev:react": "npx vite",
+    "dev:electron": "electron .",
+    "build": "vite build && electron-builder"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "electron": "^44.3.0",
+    "groq-sdk": "^1.6.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "vite": "^8.2.2",
+    "wait-on": "^9.1.0"
+  }
+}
