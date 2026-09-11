@@ -3,11 +3,15 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("electronAPI", {
   // Agent
   sendMessage: (message, projectPath, instructions) =>
-  ipcRenderer.invoke("chat-message", { message, projectPath, instructions }),
+    ipcRenderer.invoke("chat-message", { message, projectPath, instructions }),
   listFiles: (projectPath, subPath) =>
     ipcRenderer.invoke("list-files", { projectPath, subPath }),
   resetAgent: (projectPath) =>
     ipcRenderer.invoke("reset-agent", { projectPath }),
+
+  // Folder picker
+  selectFolder: () =>
+    ipcRenderer.invoke("select-folder"),
 
   // Projects
   getProjects: () =>
@@ -28,4 +32,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("get-instructions", { projectId }),
   saveInstructions: (projectId, instructions) =>
     ipcRenderer.invoke("save-instructions", { projectId, instructions }),
+
+  // Attachments
+  readAttachment: (filePath) =>
+    ipcRenderer.invoke("read-attachment", { filePath }),
 });

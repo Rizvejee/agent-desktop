@@ -16,6 +16,7 @@
     "dotenv": "^17.4.2",
     "electron": "^44.3.0",
     "groq-sdk": "^1.6.0",
+    "lucide-react": "^1.44.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
