@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:react\" \"wait-on http://localhost:3000 && npm run dev:electron\"",
     "dev:react": "npx vite",
-    "dev:electron": "electron .",
+    "dev:electron": "electron . --ozone-platform=x11",
     "build": "vite build && electron-builder"
   },
   "keywords": [],
