@@ -7,11 +7,11 @@ import {
   ChevronDown,
   ChevronUp,
   Settings,
+  User,
 } from "lucide-react";
+import { useTheme } from "../ThemeContext";
 
 export default function Sidebar({
-  onOpenSettings,
-  showSettings,
   projects,
   activeProject,
   chats,
@@ -22,54 +22,78 @@ export default function Sidebar({
   onNewChat,
   onSelectChat,
   onDeleteChat,
+  onOpenSettings,
+  showSettings,
 }) {
+  const { theme } = useTheme();
   const [fileTree, setFileTree] = useState("");
   const [showChats, setShowChats] = useState(true);
 
   useEffect(() => {
-    if (activeProject) {
-      loadFileTree();
-    }
+    if (activeProject) loadFileTree();
   }, [activeProject]);
 
   async function loadFileTree() {
-    const result = await window.electronAPI.listFiles(
-      activeProject.path,
-      ""
-    );
+    const result = await window.electronAPI.listFiles(activeProject.path, "");
     if (result.success) setFileTree(result.result);
   }
 
   return (
-    <div style={styles.sidebar}>
-      {/* Projects Section */}
-      <div style={styles.section}>
+    <div
+      style={{
+        ...styles.sidebar,
+        background: theme.bgSidebar,
+        borderRight: `1px solid ${theme.border}`,
+      }}
+    >
+      {/* Projects */}
+      <div
+        style={{
+          ...styles.section,
+          borderBottom: `1px solid ${theme.border}`,
+        }}
+      >
         <div style={styles.sectionHeader}>
-          <span style={styles.sectionTitle}>Projects</span>
-          <button style={styles.iconBtn} onClick={onAddProject} title="Add Project">
+          <span style={{ ...styles.sectionTitle, color: theme.textMuted }}>
+            Projects
+          </span>
+          <button
+            style={{ ...styles.iconBtn, color: theme.textMuted }}
+            onClick={onAddProject}
+            title="Add Project"
+          >
             <Plus size={14} />
           </button>
         </div>
 
-        <div style={styles.projectList}>
+        <div style={styles.list}>
           {projects.map((project) => (
             <div
               key={project.id}
               style={{
-                ...styles.projectItem,
-                ...(activeProject?.id === project.id
-                  ? styles.projectItemActive
-                  : {}),
+                ...styles.item,
+                background:
+                  activeProject?.id === project.id
+                    ? theme.bgActive
+                    : "transparent",
+                color:
+                  activeProject?.id === project.id
+                    ? theme.accent
+                    : theme.textSecondary,
               }}
               onClick={() => onSwitchProject(project)}
             >
               <FolderOpen
                 size={14}
-                color={activeProject?.id === project.id ? "#2563eb" : "#888"}
+                color={
+                  activeProject?.id === project.id
+                    ? theme.accent
+                    : theme.textMuted
+                }
               />
-              <span style={styles.projectName}>{project.name}</span>
+              <span style={styles.itemLabel}>{project.name}</span>
               <button
-                style={styles.deleteBtn}
+                style={{ ...styles.deleteBtn, color: theme.textMuted }}
                 onClick={(e) => {
                   e.stopPropagation();
                   onRemoveProject(project.id);
@@ -81,7 +105,14 @@ export default function Sidebar({
           ))}
 
           {projects.length === 0 && (
-            <button style={styles.addProjectBtn} onClick={onAddProject}>
+            <button
+              style={{
+                ...styles.emptyBtn,
+                border: `1px dashed ${theme.border}`,
+                color: theme.textMuted,
+              }}
+              onClick={onAddProject}
+            >
               <Plus size={13} />
               Add your first project
             </button>
@@ -89,24 +120,39 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Chats Section */}
+      {/* Chats */}
       {activeProject && (
-        <div style={{ ...styles.section, flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <div
+          style={{
+            ...styles.section,
+            flex: 1,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            borderBottom: `1px solid ${theme.border}`,
+          }}
+        >
           <div style={styles.sectionHeader}>
-            <span style={styles.sectionTitle}>Chats</span>
+            <span style={{ ...styles.sectionTitle, color: theme.textMuted }}>
+              Chats
+            </span>
             <div style={{ display: "flex", gap: "4px" }}>
               <button
-                style={styles.iconBtn}
+                style={{ ...styles.iconBtn, color: theme.textMuted }}
                 onClick={() => onNewChat(activeProject.id)}
                 title="New Chat"
               >
                 <Plus size={14} />
               </button>
               <button
-                style={styles.iconBtn}
+                style={{ ...styles.iconBtn, color: theme.textMuted }}
                 onClick={() => setShowChats(!showChats)}
               >
-                {showChats ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {showChats ? (
+                  <ChevronUp size={14} />
+                ) : (
+                  <ChevronDown size={14} />
+                )}
               </button>
             </div>
           </div>
@@ -117,20 +163,29 @@ export default function Sidebar({
                 <div
                   key={chat.id}
                   style={{
-                    ...styles.chatItem,
-                    ...(activeChat?.id === chat.id
-                      ? styles.chatItemActive
-                      : {}),
+                    ...styles.item,
+                    background:
+                      activeChat?.id === chat.id
+                        ? theme.bgActive
+                        : "transparent",
+                    color:
+                      activeChat?.id === chat.id
+                        ? theme.accent
+                        : theme.textSecondary,
                   }}
                   onClick={() => onSelectChat(chat)}
                 >
                   <MessageSquare
                     size={12}
-                    color={activeChat?.id === chat.id ? "#2563eb" : "#aaa"}
+                    color={
+                      activeChat?.id === chat.id
+                        ? theme.accent
+                        : theme.textMuted
+                    }
                   />
-                  <span style={styles.chatTitle}>{chat.title}</span>
+                  <span style={styles.itemLabel}>{chat.title}</span>
                   <button
-                    style={styles.deleteBtn}
+                    style={{ ...styles.deleteBtn, color: theme.textMuted }}
                     onClick={(e) => {
                       e.stopPropagation();
                       onDeleteChat(activeProject.id, chat.id);
@@ -147,26 +202,45 @@ export default function Sidebar({
 
       {/* File Tree */}
       {activeProject && fileTree && (
-        <div style={styles.fileTreeSection}>
+        <div
+          style={{
+            ...styles.fileTreeSection,
+            borderBottom: `1px solid ${theme.border}`,
+          }}
+        >
           <div style={styles.sectionHeader}>
-            <span style={styles.sectionTitle}>Files</span>
+            <span style={{ ...styles.sectionTitle, color: theme.textMuted }}>
+              Files
+            </span>
           </div>
-          <pre style={styles.fileTree}>{fileTree}</pre>
+          <pre style={{ ...styles.fileTree, color: theme.textMuted }}>
+            {fileTree}
+          </pre>
         </div>
       )}
-      {/* Bottom Settings Button */}
-      <div style={styles.bottomBar}>
-      <button
-       style={{
-      ...styles.settingsBarBtn,
-      ...(showSettings ? styles.settingsBarBtnActive : {}),
-       }}
-       onClick={onOpenSettings}
-       >
-      <Settings size={16} />
-      <span style={styles.settingsBarLabel}>Rizwan</span>
-      </button>
-     </div>
+
+      {/* Bottom Settings */}
+      <div
+        style={{
+          ...styles.bottomBar,
+          borderTop: `1px solid ${theme.border}`,
+        }}
+      >
+        <button
+          style={{
+            ...styles.settingsBarBtn,
+            background: showSettings ? theme.bgActive : "transparent",
+            color: showSettings ? theme.accent : theme.textSecondary,
+          }}
+          onClick={onOpenSettings}
+        >
+          <div style={styles.userAvatar}>
+            <User size={13} color={theme.accent} />
+          </div>
+          <span style={styles.settingsBarLabel}>Rizwan</span>
+          <Settings size={14} color={theme.textMuted} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -174,86 +248,75 @@ export default function Sidebar({
 const styles = {
   sidebar: {
     width: "240px",
-    background: "#f9f9f9",
-    borderRight: "1px solid #ebebeb",
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
     flexShrink: 0,
   },
   section: {
-    padding: "14px",
-    borderBottom: "1px solid #ebebeb",
+    padding: "12px 12px",
   },
   sectionHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: "8px",
+    marginBottom: "6px",
+    padding: "0 4px",
   },
   sectionTitle: {
     fontSize: "11px",
     fontWeight: "600",
-    color: "#aaa",
     letterSpacing: "0.5px",
+    textTransform: "uppercase",
   },
   iconBtn: {
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#aaa",
     display: "flex",
     alignItems: "center",
     padding: "3px",
     borderRadius: "4px",
   },
-  projectList: {
+  list: {
     display: "flex",
     flexDirection: "column",
     gap: "2px",
   },
-  projectItem: {
+  item: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
-    padding: "8px 10px",
+    padding: "7px 8px",
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "13px",
-    color: "#444",
+    fontWeight: "500",
     transition: "background 0.15s",
   },
-  projectItemActive: {
-    background: "#eff6ff",
-    color: "#2563eb",
-  },
-  projectName: {
+  itemLabel: {
     flex: 1,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontWeight: "500",
   },
   deleteBtn: {
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#ccc",
     display: "flex",
     alignItems: "center",
     padding: "2px",
     borderRadius: "4px",
     opacity: 1,
   },
-  addProjectBtn: {
+  emptyBtn: {
     display: "flex",
     alignItems: "center",
     gap: "6px",
     padding: "8px 10px",
     background: "none",
-    border: "1px dashed #ddd",
     borderRadius: "8px",
-    color: "#aaa",
     fontSize: "12px",
     cursor: "pointer",
     width: "100%",
@@ -265,41 +328,20 @@ const styles = {
     overflowY: "auto",
     flex: 1,
   },
-  chatItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "7px 10px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "12px",
-    color: "#666",
-  },
-  chatItemActive: {
-    background: "#eff6ff",
-    color: "#2563eb",
-  },
-  chatTitle: {
-    flex: 1,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
   fileTreeSection: {
-    padding: "14px",
+    padding: "12px",
     overflow: "auto",
-    maxHeight: "200px",
+    maxHeight: "180px",
   },
   fileTree: {
     fontSize: "11px",
-    color: "#888",
     lineHeight: "1.8",
     whiteSpace: "pre-wrap",
     fontFamily: "Monaco, Menlo, monospace",
+    margin: 0,
   },
   bottomBar: {
-    padding: "10px 14px",
-    borderTop: "1px solid #ebebeb",
+    padding: "10px 12px",
     marginTop: "auto",
     flexShrink: 0,
   },
@@ -313,13 +355,18 @@ const styles = {
     border: "none",
     borderRadius: "8px",
     cursor: "pointer",
-    color: "#666",
     fontSize: "13px",
     fontWeight: "500",
   },
-  settingsBarBtnActive: {
-    background: "#eff6ff",
-    color: "#2563eb",
+  userAvatar: {
+    width: "26px",
+    height: "26px",
+    borderRadius: "50%",
+    background: "#EFF6FF",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
   settingsBarLabel: {
     flex: 1,

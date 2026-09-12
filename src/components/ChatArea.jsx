@@ -1,7 +1,17 @@
 import { useState, useEffect } from "react";
-import { FolderOpen, Settings, X, Edit3, Check, Paperclip, FileText, Trash2 } from "lucide-react";
+import {
+  FolderOpen,
+  Settings,
+  X,
+  Edit3,
+  Check,
+  Paperclip,
+  FileText,
+  Trash2,
+} from "lucide-react";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
+import { useTheme } from "../ThemeContext";
 
 export default function ChatArea({
   activeProject,
@@ -10,6 +20,7 @@ export default function ChatArea({
   onSendMessage,
   toolStatuses,
 }) {
+  const { theme } = useTheme();
   const [showSettings, setShowSettings] = useState(false);
   const [instructions, setInstructions] = useState("");
   const [savedInstructions, setSavedInstructions] = useState("");
@@ -58,10 +69,7 @@ export default function ChatArea({
           reader.onload = (e) => resolve(e.target.result);
           reader.readAsText(file);
         });
-        setAttachments((prev) => [
-          ...prev,
-          { name: file.name, content },
-        ]);
+        setAttachments((prev) => [...prev, { name: file.name, content }]);
       }
     };
 
@@ -74,13 +82,40 @@ export default function ChatArea({
 
   if (!activeProject) {
     return (
-      <div style={styles.welcome}>
+      <div
+        style={{
+          ...styles.welcome,
+          background: theme.bgMain,
+        }}
+      >
         <div style={styles.welcomeContent}>
-          <FolderOpen size={48} color="#d0d0d0" />
-          <h2 style={styles.welcomeTitle}>Welcome to My Coding Agent</h2>
-          <p style={styles.welcomeSubtitle}>
+          <div
+            style={{
+              ...styles.welcomeIconBox,
+              background: theme.bgCard,
+              border: `1px solid ${theme.border}`,
+              boxShadow: theme.shadowMd,
+            }}
+          >
+            <FolderOpen size={32} color={theme.accent} />
+          </div>
+          <h2 style={{ ...styles.welcomeTitle, color: theme.textPrimary }}>
+            Welcome to My Coding Agent
+          </h2>
+          <p style={{ ...styles.welcomeSubtitle, color: theme.textMuted }}>
             Add a project from the sidebar to get started.
           </p>
+          <button
+            style={{
+              ...styles.welcomeBtn,
+              background: theme.accent,
+              color: theme.textInverse,
+            }}
+            onClick={() => {}}
+          >
+            <FolderOpen size={15} />
+            Add Project
+          </button>
         </div>
       </div>
     );
@@ -88,25 +123,41 @@ export default function ChatArea({
 
   if (!activeChat) {
     return (
-      <div style={styles.welcome}>
+      <div style={{ ...styles.welcome, background: theme.bgMain }}>
         <div style={styles.welcomeContent}>
-          <p style={styles.welcomeSubtitle}>Select or create a chat.</p>
+          <p style={{ ...styles.welcomeSubtitle, color: theme.textMuted }}>
+            Select or create a chat.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, background: theme.bgMain }}>
       {/* Header */}
-      <div style={styles.header}>
-        <FolderOpen size={15} color="#2563eb" />
-        <span style={styles.projectName}>{activeProject.name}</span>
-        <span style={styles.projectPath}>{activeProject.path}</span>
+      <div
+        style={{
+          ...styles.header,
+          background: theme.bgCard,
+          borderBottom: `1px solid ${theme.border}`,
+          boxShadow: theme.shadow,
+        }}
+      >
+        <FolderOpen size={15} color={theme.accent} />
+        <div style={styles.headerInfo}>
+          <span style={{ ...styles.projectName, color: theme.textPrimary }}>
+            {activeProject.name}
+          </span>
+          <span style={{ ...styles.projectPath, color: theme.textMuted }}>
+            {activeProject.path}
+          </span>
+        </div>
         <button
           style={{
             ...styles.settingsBtn,
-            ...(showSettings ? styles.settingsBtnActive : {}),
+            background: showSettings ? theme.accentLight : "transparent",
+            color: showSettings ? theme.accent : theme.textMuted,
           }}
           onClick={() => setShowSettings(!showSettings)}
           title="Project Settings"
@@ -117,26 +168,48 @@ export default function ChatArea({
 
       {/* Settings Panel */}
       {showSettings && (
-        <div style={styles.settingsPanel}>
+        <div
+          style={{
+            ...styles.settingsPanel,
+            background: theme.bgCard,
+            borderBottom: `1px solid ${theme.border}`,
+          }}
+        >
           <div style={styles.settingsHeader}>
-            <span style={styles.settingsTitle}>
+            <span
+              style={{ ...styles.settingsTitle, color: theme.textPrimary }}
+            >
               Project Settings — {activeProject.name}
             </span>
             <button
-              style={styles.closeBtn}
+              style={{ ...styles.closeBtn, color: theme.textMuted }}
               onClick={() => setShowSettings(false)}
             >
               <X size={15} />
             </button>
           </div>
 
-          {/* Instructions Block */}
-          <div style={styles.settingsBlock}>
+          {/* Instructions */}
+          <div
+            style={{
+              ...styles.settingsBlock,
+              borderTop: `1px solid ${theme.border}`,
+            }}
+          >
             <div style={styles.blockHeader}>
-              <span style={styles.blockLabel}>Custom Instructions</span>
+              <span
+                style={{ ...styles.blockLabel, color: theme.textSecondary }}
+              >
+                Custom Instructions
+              </span>
               {!isEditingInstructions && (
                 <button
-                  style={styles.editBtn}
+                  style={{
+                    ...styles.editBtn,
+                    background: theme.bgHover,
+                    border: `1px solid ${theme.border}`,
+                    color: theme.textSecondary,
+                  }}
                   onClick={() => setIsEditingInstructions(true)}
                 >
                   <Edit3 size={12} />
@@ -148,40 +221,90 @@ export default function ChatArea({
             {isEditingInstructions ? (
               <>
                 <textarea
-                  style={styles.instructionsTextarea}
+                  style={{
+                    ...styles.instructionsTextarea,
+                    background: theme.bgInput,
+                    border: `1px solid ${theme.border}`,
+                    color: theme.textPrimary,
+                  }}
                   value={instructions}
                   onChange={(e) => setInstructions(e.target.value)}
-                  placeholder={
-                    "- Always use functional components\n- Keep code simple\n- No TypeScript"
-                  }
+                  placeholder="- Always use functional components&#10;- Keep code simple&#10;- No TypeScript"
                   autoFocus
                 />
                 <div style={styles.instructionsBtns}>
-                  <button style={styles.cancelBtn} onClick={cancelEdit}>
+                  <button
+                    style={{
+                      ...styles.cancelBtn,
+                      background: theme.bgHover,
+                      border: `1px solid ${theme.border}`,
+                      color: theme.textSecondary,
+                    }}
+                    onClick={cancelEdit}
+                  >
                     Cancel
                   </button>
-                  <button style={styles.saveBtn} onClick={saveInstructions}>
+                  <button
+                    style={{
+                      ...styles.saveBtn,
+                      background: theme.accent,
+                      color: theme.textInverse,
+                    }}
+                    onClick={saveInstructions}
+                  >
                     <Check size={13} />
                     Save
                   </button>
                 </div>
               </>
             ) : (
-              <div style={styles.instructionsPreview}>
+              <div
+                style={{
+                  ...styles.instructionsPreview,
+                  background: theme.bgInput,
+                  border: `1px solid ${theme.border}`,
+                }}
+              >
                 {savedInstructions ? (
-                  <pre style={styles.instructionsText}>{savedInstructions}</pre>
+                  <pre
+                    style={{
+                      ...styles.instructionsText,
+                      color: theme.textSecondary,
+                    }}
+                  >
+                    {savedInstructions}
+                  </pre>
                 ) : (
-                  <span style={styles.emptyText}>No instructions added yet.</span>
+                  <span style={{ ...styles.emptyText, color: theme.textMuted }}>
+                    No instructions added yet.
+                  </span>
                 )}
               </div>
             )}
           </div>
 
-          {/* Attachments Block */}
-          <div style={styles.settingsBlock}>
+          {/* Attachments */}
+          <div
+            style={{
+              ...styles.settingsBlock,
+              borderTop: `1px solid ${theme.border}`,
+            }}
+          >
             <div style={styles.blockHeader}>
-              <span style={styles.blockLabel}>Context Files</span>
-              <button style={styles.editBtn} onClick={handleAddAttachment}>
+              <span
+                style={{ ...styles.blockLabel, color: theme.textSecondary }}
+              >
+                Context Files
+              </span>
+              <button
+                style={{
+                  ...styles.editBtn,
+                  background: theme.bgHover,
+                  border: `1px solid ${theme.border}`,
+                  color: theme.textSecondary,
+                }}
+                onClick={handleAddAttachment}
+              >
                 <Paperclip size={12} />
                 Add File
               </button>
@@ -190,14 +313,33 @@ export default function ChatArea({
             {attachments.length > 0 ? (
               <div style={styles.attachmentsList}>
                 {attachments.map((file) => (
-                  <div key={file.name} style={styles.attachmentItem}>
-                    <FileText size={13} color="#2563eb" />
-                    <span style={styles.attachmentName}>{file.name}</span>
-                    <span style={styles.attachmentSize}>
+                  <div
+                    key={file.name}
+                    style={{
+                      ...styles.attachmentItem,
+                      background: theme.bgInput,
+                      border: `1px solid ${theme.border}`,
+                    }}
+                  >
+                    <FileText size={13} color={theme.accent} />
+                    <span
+                      style={{
+                        ...styles.attachmentName,
+                        color: theme.textSecondary,
+                      }}
+                    >
+                      {file.name}
+                    </span>
+                    <span
+                      style={{
+                        ...styles.attachmentSize,
+                        color: theme.textMuted,
+                      }}
+                    >
                       {(file.content.length / 1024).toFixed(1)} KB
                     </span>
                     <button
-                      style={styles.removeBtn}
+                      style={{ ...styles.removeBtn, color: theme.textMuted }}
                       onClick={() => removeAttachment(file.name)}
                     >
                       <Trash2 size={12} />
@@ -206,7 +348,7 @@ export default function ChatArea({
                 ))}
               </div>
             ) : (
-              <span style={styles.emptyText}>
+              <span style={{ ...styles.emptyText, color: theme.textMuted }}>
                 No files attached. Files give Agent more context.
               </span>
             )}
@@ -238,75 +380,91 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
-    background: "#f5f5f5",
   },
   welcome: {
     flex: 1,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "#f5f5f5",
   },
   welcomeContent: {
     textAlign: "center",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "12px",
+    gap: "16px",
+  },
+  welcomeIconBox: {
+    width: "72px",
+    height: "72px",
+    borderRadius: "20px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: "4px",
   },
   welcomeTitle: {
-    fontSize: "20px",
-    fontWeight: "600",
-    color: "#1a1a1a",
+    fontSize: "22px",
+    fontWeight: "700",
     margin: 0,
   },
   welcomeSubtitle: {
     fontSize: "14px",
-    color: "#aaa",
     margin: 0,
+    maxWidth: "300px",
+    lineHeight: "1.6",
   },
-  header: {
-    padding: "12px 20px",
-    background: "#ffffff",
-    borderBottom: "1px solid #ebebeb",
+  welcomeBtn: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
+    padding: "10px 20px",
+    border: "none",
+    borderRadius: "10px",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+    marginTop: "4px",
+  },
+  header: {
+    padding: "12px 20px",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    flexShrink: 0,
+  },
+  headerInfo: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    flex: 1,
   },
   projectName: {
     fontSize: "13px",
     fontWeight: "600",
-    color: "#1a1a1a",
+    lineHeight: 1,
   },
   projectPath: {
     fontSize: "11px",
-    color: "#bbb",
     fontFamily: "Monaco, Menlo, monospace",
-    flex: 1,
+    lineHeight: 1,
   },
   settingsBtn: {
-    background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#bbb",
     display: "flex",
     alignItems: "center",
-    padding: "4px",
-    borderRadius: "6px",
-  },
-  settingsBtnActive: {
-    color: "#2563eb",
-    background: "#eff6ff",
+    padding: "6px",
+    borderRadius: "8px",
   },
   settingsPanel: {
-    background: "#ffffff",
-    borderBottom: "1px solid #ebebeb",
     padding: "16px 20px",
     display: "flex",
     flexDirection: "column",
     gap: "14px",
     maxHeight: "340px",
     overflowY: "auto",
+    flexShrink: 0,
   },
   settingsHeader: {
     display: "flex",
@@ -316,13 +474,11 @@ const styles = {
   settingsTitle: {
     fontSize: "13px",
     fontWeight: "600",
-    color: "#1a1a1a",
   },
   closeBtn: {
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#bbb",
     display: "flex",
     alignItems: "center",
     padding: "2px",
@@ -332,7 +488,6 @@ const styles = {
     flexDirection: "column",
     gap: "8px",
     paddingTop: "12px",
-    borderTop: "1px solid #f0f0f0",
   },
   blockHeader: {
     display: "flex",
@@ -342,32 +497,25 @@ const styles = {
   blockLabel: {
     fontSize: "12px",
     fontWeight: "600",
-    color: "#888",
   },
   editBtn: {
     display: "flex",
     alignItems: "center",
     gap: "4px",
     padding: "4px 10px",
-    background: "#f5f5f5",
-    border: "1px solid #ebebeb",
     borderRadius: "6px",
     fontSize: "12px",
-    color: "#666",
     cursor: "pointer",
   },
   instructionsTextarea: {
     width: "100%",
     height: "90px",
     padding: "10px 12px",
-    border: "1px solid #ebebeb",
     borderRadius: "8px",
     fontSize: "13px",
     fontFamily: "inherit",
     resize: "vertical",
     outline: "none",
-    color: "#1a1a1a",
-    background: "#f8f8f8",
     lineHeight: "1.6",
     boxSizing: "border-box",
   },
@@ -378,11 +526,8 @@ const styles = {
   },
   cancelBtn: {
     padding: "6px 14px",
-    background: "#f5f5f5",
-    border: "1px solid #ebebeb",
     borderRadius: "7px",
     fontSize: "12px",
-    color: "#666",
     cursor: "pointer",
   },
   saveBtn: {
@@ -390,8 +535,6 @@ const styles = {
     alignItems: "center",
     gap: "5px",
     padding: "6px 14px",
-    background: "#2563eb",
-    color: "white",
     border: "none",
     borderRadius: "7px",
     fontSize: "12px",
@@ -400,14 +543,11 @@ const styles = {
   },
   instructionsPreview: {
     padding: "10px 12px",
-    background: "#f8f8f8",
     borderRadius: "8px",
-    border: "1px solid #ebebeb",
     minHeight: "40px",
   },
   instructionsText: {
     fontSize: "12px",
-    color: "#444",
     lineHeight: "1.6",
     whiteSpace: "pre-wrap",
     margin: 0,
@@ -415,7 +555,6 @@ const styles = {
   },
   emptyText: {
     fontSize: "12px",
-    color: "#bbb",
   },
   attachmentsList: {
     display: "flex",
@@ -427,29 +566,23 @@ const styles = {
     alignItems: "center",
     gap: "8px",
     padding: "8px 12px",
-    background: "#f8f8f8",
-    border: "1px solid #ebebeb",
     borderRadius: "8px",
-    fontSize: "13px",
   },
   attachmentName: {
     flex: 1,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: "#444",
     fontSize: "12px",
   },
   attachmentSize: {
     fontSize: "11px",
-    color: "#bbb",
     flexShrink: 0,
   },
   removeBtn: {
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#ccc",
     display: "flex",
     alignItems: "center",
     padding: "2px",

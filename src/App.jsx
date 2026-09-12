@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
-import { Bot } from "lucide-react";
+import { Bot, Moon, Sun } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
 import Settings from "./pages/Settings";
 import { useProjects } from "./hooks/useProjects";
 import { useChats } from "./hooks/useChats";
+import { useTheme } from "./ThemeContext";
 
 export default function App() {
+  const { theme, mode, toggleTheme } = useTheme();
+
   const {
     projects,
     activeProject,
@@ -24,31 +27,31 @@ export default function App() {
     updateChat,
   } = useChats(activeProject);
 
-  const [showSettings, setShowSettings] = useState(false);
-  const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [toolStatuses, setToolStatuses] = useState([]);
 
   useEffect(() => {
-  window.electronAPI.onToolStatus((data) => {
-    setToolStatuses((prev) => {
-      const existing = prev.findIndex(
-        (t) => t.tool === data.tool &&
-        JSON.stringify(t.input) === JSON.stringify(data.input)
-      );
-      if (existing >= 0) {
-        const updated = [...prev];
-        updated[existing] = data;
-        return updated;
-      }
-      return [...prev, data];
+    window.electronAPI.onToolStatus((data) => {
+      setToolStatuses((prev) => {
+        const existing = prev.findIndex(
+          (t) =>
+            t.tool === data.tool &&
+            JSON.stringify(t.input) === JSON.stringify(data.input)
+        );
+        if (existing >= 0) {
+          const updated = [...prev];
+          updated[existing] = data;
+          return updated;
+        }
+        return [...prev, data];
+      });
     });
-  });
 
-  return () => {
-    window.electronAPI.removeToolStatusListener();
-  };
-}, []);
+    return () => {
+      window.electronAPI.removeToolStatusListener();
+    };
+  }, []);
 
   async function handleSendMessage(fullMessage, displayMessage) {
     if (!activeChat || !activeProject) return;
@@ -98,18 +101,52 @@ export default function App() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, background: theme.bgMain }}>
       {/* Header */}
-      <div style={styles.header}>
-        <Bot size={18} color="#2563eb" />
-        <span style={styles.headerTitle}>My Coding Agent</span>
-        {activeProject && !showSettings && (
-          <span style={styles.headerStatus}>● Online</span>
-        )}
+      <div
+        style={{
+          ...styles.header,
+          background: theme.bgCard,
+          borderBottom: `1px solid ${theme.border}`,
+          boxShadow: theme.shadow,
+        }}
+      >
+        <div style={styles.headerLeft}>
+          <Bot size={20} color={theme.accent} />
+          <span style={{ ...styles.headerTitle, color: theme.textPrimary }}>
+            My Coding Agent
+          </span>
+        </div>
+
+        <div style={styles.headerRight}>
+          {activeProject && !showSettings && (
+            <span
+              style={{
+                ...styles.headerStatus,
+                color: theme.success,
+                background: theme.successBg,
+              }}
+            >
+              ● Online
+            </span>
+          )}
+
+          {/* Theme Toggle */}
+          <button
+            style={{
+              ...styles.themeToggle,
+              background: theme.bgHover,
+              color: theme.textSecondary,
+            }}
+            onClick={() => toggleTheme(mode === "light" ? "dark" : "light")}
+            title="Toggle theme"
+          >
+            {mode === "light" ? <Moon size={15} /> : <Sun size={15} />}
+          </button>
+        </div>
       </div>
 
       <div style={styles.main}>
-        {/* Sidebar */}
         <Sidebar
           projects={projects}
           activeProject={activeProject}
@@ -125,24 +162,20 @@ export default function App() {
           showSettings={showSettings}
         />
 
-        {/* Main Area */}
         {showSettings ? (
-        <Settings onClose={() => setShowSettings(false)} />
-         ) : showProjectSettings ? (
-        <ProjectSettings
-        activeProject={activeProject}
-        onClose={() => setShowProjectSettings(false)}
-        />
+          <Settings
+            onClose={() => setShowSettings(false)}
+            onThemeChange={toggleTheme}
+            currentTheme={mode}
+          />
         ) : (
-        <ChatArea
-        activeProject={activeProject}
-        activeChat={activeChat}
-        isThinking={isThinking}
-        onSendMessage={handleSendMessage}
-        toolStatuses={toolStatuses}
-        onOpenProjectSettings={() => setShowProjectSettings(true)}
-        />
-        
+          <ChatArea
+            activeProject={activeProject}
+            activeChat={activeChat}
+            isThinking={isThinking}
+            onSendMessage={handleSendMessage}
+            toolStatuses={toolStatuses}
+          />
         )}
       </div>
     </div>
@@ -154,32 +187,47 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     height: "100vh",
-    background: "#f5f5f5",
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   header: {
-    background: "#ffffff",
-    borderBottom: "1px solid #ebebeb",
-    padding: "13px 20px",
+    padding: "12px 20px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    WebkitAppRegion: "drag",
+    flexShrink: 0,
+  },
+  headerLeft: {
     display: "flex",
     alignItems: "center",
     gap: "10px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-    WebkitAppRegion: "drag",
-    flexShrink: 0,
   },
   headerTitle: {
     fontSize: "15px",
     fontWeight: "600",
-    color: "#1a1a1a",
-    flex: 1,
+  },
+  headerRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    WebkitAppRegion: "no-drag",
   },
   headerStatus: {
     fontSize: "12px",
-    color: "#16a34a",
-    background: "#dcfce7",
     padding: "3px 10px",
     borderRadius: "20px",
+    fontWeight: "500",
+  },
+  themeToggle: {
+    border: "none",
+    borderRadius: "8px",
+    padding: "6px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "32px",
+    height: "32px",
   },
   main: {
     display: "flex",
