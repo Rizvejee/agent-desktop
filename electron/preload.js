@@ -36,4 +36,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Attachments
   readAttachment: (filePath) =>
     ipcRenderer.invoke("read-attachment", { filePath }),
+
+  // Settings
+  getSettings: () =>
+    ipcRenderer.invoke("get-settings"),
+  saveSettings: (settings) =>
+    ipcRenderer.invoke("save-settings", { settings }),
 });

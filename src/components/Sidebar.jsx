@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 
 export default function Sidebar({
+  onOpenSettings,
+  showSettings,
   projects,
   activeProject,
   chats,
@@ -152,6 +154,19 @@ export default function Sidebar({
           <pre style={styles.fileTree}>{fileTree}</pre>
         </div>
       )}
+      {/* Bottom Settings Button */}
+      <div style={styles.bottomBar}>
+      <button
+       style={{
+      ...styles.settingsBarBtn,
+      ...(showSettings ? styles.settingsBarBtnActive : {}),
+       }}
+       onClick={onOpenSettings}
+       >
+      <Settings size={16} />
+      <span style={styles.settingsBarLabel}>Rizwan</span>
+      </button>
+     </div>
     </div>
   );
 }
@@ -281,5 +296,33 @@ const styles = {
     lineHeight: "1.8",
     whiteSpace: "pre-wrap",
     fontFamily: "Monaco, Menlo, monospace",
+  },
+  bottomBar: {
+    padding: "10px 14px",
+    borderTop: "1px solid #ebebeb",
+    marginTop: "auto",
+    flexShrink: 0,
+  },
+  settingsBarBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "8px 10px",
+    width: "100%",
+    background: "none",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    color: "#666",
+    fontSize: "13px",
+    fontWeight: "500",
+  },
+  settingsBarBtnActive: {
+    background: "#eff6ff",
+    color: "#2563eb",
+  },
+  settingsBarLabel: {
+    flex: 1,
+    textAlign: "left",
   },
 };

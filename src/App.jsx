@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Bot } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
+import Settings from "./pages/Settings";
 import { useProjects } from "./hooks/useProjects";
 import { useChats } from "./hooks/useChats";
 
@@ -23,6 +24,8 @@ export default function App() {
     updateChat,
   } = useChats(activeProject);
 
+  const [showSettings, setShowSettings] = useState(false);
+  const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
 
   async function handleSendMessage(fullMessage, displayMessage) {
@@ -72,15 +75,17 @@ export default function App() {
 
   return (
     <div style={styles.container}>
+      {/* Header */}
       <div style={styles.header}>
         <Bot size={18} color="#2563eb" />
         <span style={styles.headerTitle}>My Coding Agent</span>
-        {activeProject && (
+        {activeProject && !showSettings && (
           <span style={styles.headerStatus}>● Online</span>
         )}
       </div>
 
       <div style={styles.main}>
+        {/* Sidebar */}
         <Sidebar
           projects={projects}
           activeProject={activeProject}
@@ -92,14 +97,27 @@ export default function App() {
           onNewChat={newChat}
           onSelectChat={setActiveChat}
           onDeleteChat={deleteChat}
+          onOpenSettings={() => setShowSettings(true)}
+          showSettings={showSettings}
         />
 
-        <ChatArea
-          activeProject={activeProject}
-          activeChat={activeChat}
-          isThinking={isThinking}
-          onSendMessage={handleSendMessage}
+        {/* Main Area */}
+        {showSettings ? (
+        <Settings onClose={() => setShowSettings(false)} />
+         ) : showProjectSettings ? (
+        <ProjectSettings
+        activeProject={activeProject}
+        onClose={() => setShowProjectSettings(false)}
         />
+        ) : (
+        <ChatArea
+        activeProject={activeProject}
+        activeChat={activeChat}
+        isThinking={isThinking}
+        onSendMessage={handleSendMessage}
+        onOpenProjectSettings={() => setShowProjectSettings(true)}
+        />
+        )}
       </div>
     </div>
   );

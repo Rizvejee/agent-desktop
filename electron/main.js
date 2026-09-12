@@ -218,3 +218,34 @@ ipcMain.handle("read-attachment", async (event, { filePath }) => {
     return { success: false, error: error.message };
   }
 });
+// ─── IPC: Settings ───────────────────────────────────────
+const SETTINGS_FILE = path.join(__dirname, "../memory/settings.json");
+
+ipcMain.handle("get-settings", async () => {
+  try {
+    if (!fs.existsSync(SETTINGS_FILE)) {
+      return { success: true, settings: {} };
+    }
+    const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf-8"));
+    return { success: true, settings: data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("save-settings", async (event, { settings }) => {
+  try {
+    const dir = path.dirname(SETTINGS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+
+    // API key اور model update کریں
+    if (settings.apiKey) {
+      process.env.GROQ_API_KEY = settings.apiKey;
+    }
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
