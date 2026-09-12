@@ -1,42 +1,14 @@
 import { useState } from "react";
-import { Paperclip, Send, X, FileText } from "lucide-react";
+import { Send } from "lucide-react";
 
-export default function InputBar({ onSendMessage, isThinking, disabled }) {
+export default function InputBar({ onSendMessage, isThinking, disabled, attachments }) {
   const [input, setInput] = useState("");
-  const [attachments, setAttachments] = useState([]);
-
-  async function handleAttachment() {
-    const fileInput = document.createElement("input");
-    fileInput.type = "file";
-    fileInput.accept = ".js,.jsx,.ts,.tsx,.css,.html,.json,.md,.txt";
-    fileInput.multiple = true;
-
-    fileInput.onchange = async (e) => {
-      const files = Array.from(e.target.files);
-      for (const file of files) {
-        if (attachments.find((a) => a.name === file.name)) continue;
-        const result = await window.electronAPI.readAttachment(file.path);
-        if (result.success) {
-          setAttachments((prev) => [
-            ...prev,
-            { name: file.name, path: file.path, content: result.content },
-          ]);
-        }
-      }
-    };
-
-    fileInput.click();
-  }
-
-  function removeAttachment(name) {
-    setAttachments((prev) => prev.filter((a) => a.name !== name));
-  }
 
   async function handleSend() {
     if (!input.trim() || isThinking || disabled) return;
 
     let fullMessage = input.trim();
-    if (attachments.length > 0) {
+    if (attachments && attachments.length > 0) {
       const attachmentContext = attachments
         .map((a) => `--- File: ${a.name} ---\n${a.content}`)
         .join("\n\n");
@@ -45,7 +17,6 @@ export default function InputBar({ onSendMessage, isThinking, disabled }) {
 
     onSendMessage(fullMessage, input.trim());
     setInput("");
-    setAttachments([]);
   }
 
   function handleKeyDown(e) {
@@ -57,35 +28,7 @@ export default function InputBar({ onSendMessage, isThinking, disabled }) {
 
   return (
     <div style={styles.container}>
-      {/* Attachments */}
-      {attachments.length > 0 && (
-        <div style={styles.attachmentsList}>
-          {attachments.map((file) => (
-            <div key={file.name} style={styles.attachmentItem}>
-              <FileText size={12} color="#2563eb" />
-              <span style={styles.attachmentName}>{file.name}</span>
-              <button
-                style={styles.removeBtn}
-                onClick={() => removeAttachment(file.name)}
-              >
-                <X size={11} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Input Row */}
       <div style={styles.inputRow}>
-        <button
-          style={styles.attachBtn}
-          onClick={handleAttachment}
-          disabled={disabled}
-          title="Attach files"
-        >
-          <Paperclip size={16} color="#888" />
-        </button>
-
         <textarea
           style={styles.textarea}
           value={input}
@@ -99,7 +42,6 @@ export default function InputBar({ onSendMessage, isThinking, disabled }) {
           disabled={disabled}
           rows={1}
         />
-
         <button
           style={{
             ...styles.sendBtn,
@@ -122,57 +64,11 @@ const styles = {
     padding: "12px 20px 16px",
     background: "#ffffff",
     borderTop: "1px solid #ebebeb",
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-  attachmentsList: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "6px",
-  },
-  attachmentItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "5px",
-    padding: "4px 10px",
-    background: "#eff6ff",
-    border: "1px solid #bfdbfe",
-    borderRadius: "20px",
-    fontSize: "12px",
-    color: "#2563eb",
-  },
-  attachmentName: {
-    maxWidth: "140px",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  removeBtn: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    color: "#2563eb",
-    display: "flex",
-    alignItems: "center",
-    padding: "0",
   },
   inputRow: {
     display: "flex",
     gap: "8px",
     alignItems: "flex-end",
-  },
-  attachBtn: {
-    background: "#f5f5f5",
-    border: "1px solid #ebebeb",
-    borderRadius: "10px",
-    cursor: "pointer",
-    height: "42px",
-    width: "42px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
   },
   textarea: {
     flex: 1,

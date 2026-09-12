@@ -228,7 +228,7 @@ const styles = {
     alignItems: "center",
     padding: "2px",
     borderRadius: "4px",
-    opacity: 0,
+    opacity: 1,
   },
   addProjectBtn: {
     display: "flex",
