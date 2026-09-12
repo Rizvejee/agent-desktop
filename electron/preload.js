@@ -42,4 +42,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("get-settings"),
   saveSettings: (settings) =>
     ipcRenderer.invoke("save-settings", { settings }),
+
+  // Tool Status
+  onToolStatus: (callback) =>
+  ipcRenderer.on("tool-status", (event, data) => callback(data)),
+  removeToolStatusListener: () =>
+  ipcRenderer.removeAllListeners("tool-status"),
 });

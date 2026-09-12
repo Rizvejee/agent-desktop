@@ -79,6 +79,7 @@ function getChatsDir(projectId) {
 ipcMain.handle("chat-message", async (event, { message, projectPath, instructions }) => {
   try {
     const agent = getAgent(projectPath);
+
     if (instructions && instructions.trim()) {
       agent.systemPrompt = agent.systemPrompt.replace(
         /\nCUSTOM PROJECT INSTRUCTIONS:[\s\S]*?(?=\nMEMORY|\nPROJECT CONTEXT|$)/,
@@ -86,12 +87,36 @@ ipcMain.handle("chat-message", async (event, { message, projectPath, instruction
       );
       agent.systemPrompt += `\n\nCUSTOM PROJECT INSTRUCTIONS:\n${instructions}`;
     }
+
+    // tool use کا status UI کو بھیجیں
+    const originalExecuteTool = agent.toolHandler.executeTool.bind(agent.toolHandler);
+    agent.toolHandler.executeTool = async (toolName, toolInput) => {
+      // tool start کا event بھیجیں
+      event.sender.send("tool-status", {
+        status: "running",
+        tool: toolName,
+        input: toolInput,
+      });
+
+      const result = await originalExecuteTool(toolName, toolInput);
+
+      // tool complete کا event بھیجیں
+      event.sender.send("tool-status", {
+        status: "done",
+        tool: toolName,
+        input: toolInput,
+      });
+
+      return result;
+    };
+
     let response;
     if (message.startsWith("/")) {
       response = await agent.handleCommand(message);
     } else {
       response = await agent.chat(message);
     }
+
     return { success: true, response };
   } catch (error) {
     return { success: false, error: error.message };

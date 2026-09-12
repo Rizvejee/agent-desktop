@@ -1,12 +1,54 @@
 import { useEffect, useRef } from "react";
-import { Bot, User } from "lucide-react";
+import { Bot, User, FileText, Edit, List, Search, Terminal, Check, Loader } from "lucide-react";
 
-export default function MessageList({ messages, isThinking }) {
+function ToolStatusItem({ tool, status, input }) {
+  const getToolInfo = () => {
+    switch (tool) {
+      case "read_file":
+        return { icon: <FileText size={12} />, label: `Reading: ${input.file_path}` };
+      case "write_file":
+        return { icon: <Edit size={12} />, label: `Writing: ${input.file_path}` };
+      case "list_files":
+        return { icon: <List size={12} />, label: `Listing files${input.sub_path ? `: ${input.sub_path}` : ""}` };
+      case "search_files":
+        return { icon: <Search size={12} />, label: `Searching: ${input.search_term}` };
+      case "run_command":
+        return { icon: <Terminal size={12} />, label: `Running: ${input.command}` };
+      default:
+        return { icon: <Bot size={12} />, label: tool };
+    }
+  };
+
+  const { icon, label } = getToolInfo();
+
+  return (
+    <div style={toolStyles.item}>
+      <span style={toolStyles.icon}>
+        {status === "done" ? (
+          <Check size={12} color="#16a34a" />
+        ) : (
+          <Loader size={12} color="#2563eb" style={{ animation: "spin 1s linear infinite" }} />
+        )}
+      </span>
+      <span style={toolStyles.toolIcon}>{icon}</span>
+      <span
+        style={{
+          ...toolStyles.label,
+          color: status === "done" ? "#888" : "#444",
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+export default function MessageList({ messages, isThinking, toolStatuses }) {
   const endRef = useRef(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isThinking]);
+  }, [messages, isThinking, toolStatuses]);
 
   return (
     <div style={styles.container}>
@@ -15,30 +57,20 @@ export default function MessageList({ messages, isThinking }) {
           key={index}
           style={{
             ...styles.messageWrapper,
-            ...(msg.role === "user"
-              ? styles.wrapperUser
-              : styles.wrapperAgent),
+            ...(msg.role === "user" ? styles.wrapperUser : styles.wrapperAgent),
           }}
         >
-          {/* Avatar */}
           {msg.role !== "system" && (
             <div
               style={{
                 ...styles.avatar,
-                ...(msg.role === "user"
-                  ? styles.avatarUser
-                  : styles.avatarAgent),
+                ...(msg.role === "user" ? styles.avatarUser : styles.avatarAgent),
               }}
             >
-              {msg.role === "user" ? (
-                <User size={14} />
-              ) : (
-                <Bot size={14} />
-              )}
+              {msg.role === "user" ? <User size={14} /> : <Bot size={14} />}
             </div>
           )}
 
-          {/* Message bubble */}
           <div
             style={{
               ...styles.bubble,
@@ -59,7 +91,7 @@ export default function MessageList({ messages, isThinking }) {
         </div>
       ))}
 
-      {/* Thinking indicator */}
+      {/* Tool Status */}
       {isThinking && (
         <div style={styles.messageWrapper}>
           <div style={styles.avatarAgent}>
@@ -67,11 +99,25 @@ export default function MessageList({ messages, isThinking }) {
           </div>
           <div style={styles.thinkingBubble}>
             <div style={styles.senderName}>Coder</div>
-            <div style={styles.thinkingDots}>
-              <span style={{ ...styles.dot, animationDelay: "0ms" }} />
-              <span style={{ ...styles.dot, animationDelay: "150ms" }} />
-              <span style={{ ...styles.dot, animationDelay: "300ms" }} />
-            </div>
+
+            {toolStatuses && toolStatuses.length > 0 ? (
+              <div style={toolStyles.container}>
+                {toolStatuses.map((ts, i) => (
+                  <ToolStatusItem
+                    key={i}
+                    tool={ts.tool}
+                    status={ts.status}
+                    input={ts.input}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={styles.thinkingDots}>
+                <span style={{ ...styles.dot, animationDelay: "0ms" }} />
+                <span style={{ ...styles.dot, animationDelay: "150ms" }} />
+                <span style={{ ...styles.dot, animationDelay: "300ms" }} />
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -82,6 +128,10 @@ export default function MessageList({ messages, isThinking }) {
         @keyframes dotBounce {
           0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
           40% { transform: translateY(-6px); opacity: 1; }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>
@@ -102,12 +152,8 @@ const styles = {
     alignItems: "flex-start",
     gap: "10px",
   },
-  wrapperUser: {
-    flexDirection: "row-reverse",
-  },
-  wrapperAgent: {
-    flexDirection: "row",
-  },
+  wrapperUser: { flexDirection: "row-reverse" },
+  wrapperAgent: { flexDirection: "row" },
   avatar: {
     width: "30px",
     height: "30px",
@@ -117,10 +163,7 @@ const styles = {
     justifyContent: "center",
     flexShrink: 0,
   },
-  avatarUser: {
-    background: "#2563eb",
-    color: "#fff",
-  },
+  avatarUser: { background: "#2563eb", color: "#fff" },
   avatarAgent: {
     background: "#f0f0f0",
     color: "#555",
@@ -165,10 +208,7 @@ const styles = {
     opacity: 0.5,
     marginBottom: "4px",
   },
-  content: {
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-  },
+  content: { whiteSpace: "pre-wrap", wordBreak: "break-word" },
   thinkingBubble: {
     background: "#ffffff",
     border: "1px solid #ebebeb",
@@ -176,6 +216,7 @@ const styles = {
     borderTopLeftRadius: "4px",
     padding: "12px 16px",
     boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+    minWidth: "200px",
   },
   thinkingDots: {
     display: "flex",
@@ -190,5 +231,34 @@ const styles = {
     background: "#aaa",
     display: "inline-block",
     animation: "dotBounce 1.2s infinite ease-in-out",
+  },
+};
+
+const toolStyles = {
+  container: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    marginTop: "6px",
+  },
+  item: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "12px",
+  },
+  icon: {
+    display: "flex",
+    alignItems: "center",
+    width: "16px",
+  },
+  toolIcon: {
+    display: "flex",
+    alignItems: "center",
+    color: "#888",
+  },
+  label: {
+    fontFamily: "Monaco, Menlo, monospace",
+    fontSize: "11px",
   },
 };

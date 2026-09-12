@@ -8,6 +8,7 @@ export default function ChatArea({
   activeChat,
   isThinking,
   onSendMessage,
+  toolStatuses,
 }) {
   const [showSettings, setShowSettings] = useState(false);
   const [instructions, setInstructions] = useState("");
@@ -217,6 +218,7 @@ export default function ChatArea({
       <MessageList
         messages={activeChat.messages}
         isThinking={isThinking}
+        toolStatuses={toolStatuses}
       />
 
       {/* Input */}

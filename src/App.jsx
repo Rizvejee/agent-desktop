@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bot } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
@@ -27,9 +27,33 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [toolStatuses, setToolStatuses] = useState([]);
+
+  useEffect(() => {
+  window.electronAPI.onToolStatus((data) => {
+    setToolStatuses((prev) => {
+      const existing = prev.findIndex(
+        (t) => t.tool === data.tool &&
+        JSON.stringify(t.input) === JSON.stringify(data.input)
+      );
+      if (existing >= 0) {
+        const updated = [...prev];
+        updated[existing] = data;
+        return updated;
+      }
+      return [...prev, data];
+    });
+  });
+
+  return () => {
+    window.electronAPI.removeToolStatusListener();
+  };
+}, []);
 
   async function handleSendMessage(fullMessage, displayMessage) {
     if (!activeChat || !activeProject) return;
+
+    setToolStatuses([]);
 
     const instrResult = await window.electronAPI.getInstructions(
       activeProject.id
@@ -115,8 +139,10 @@ export default function App() {
         activeChat={activeChat}
         isThinking={isThinking}
         onSendMessage={handleSendMessage}
+        toolStatuses={toolStatuses}
         onOpenProjectSettings={() => setShowProjectSettings(true)}
         />
+        
         )}
       </div>
     </div>
