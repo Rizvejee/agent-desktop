@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Send } from "lucide-react";
+import { useTheme } from "../ThemeContext";
 
 export default function InputBar({ onSendMessage, isThinking, disabled, attachments }) {
+  const { theme } = useTheme();
   const [input, setInput] = useState("");
 
   async function handleSend() {
@@ -27,17 +29,48 @@ export default function InputBar({ onSendMessage, isThinking, disabled, attachme
   }
 
   return (
-    <div style={styles.container}>
+    <div
+      style={{
+        ...styles.container,
+        background: theme.bgCard,
+        borderTop: `1px solid ${theme.border}`,
+        boxShadow: `0 -1px 3px rgba(0,0,0,0.04)`,
+      }}
+    >
+      {/* Attachments indicator */}
+      {attachments && attachments.length > 0 && (
+        <div style={styles.attachmentsIndicator}>
+          {attachments.map((file) => (
+            <span
+              key={file.name}
+              style={{
+                ...styles.attachmentTag,
+                background: theme.accentLight,
+                color: theme.accentText,
+                border: `1px solid ${theme.accent}22`,
+              }}
+            >
+              {file.name}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div style={styles.inputRow}>
         <textarea
-          style={styles.textarea}
+          style={{
+            ...styles.textarea,
+            background: theme.bgInput,
+            border: `1px solid ${theme.border}`,
+            color: theme.textPrimary,
+          }}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
             disabled
               ? "Select a project to start..."
-              : "Type your message or /help for commands..."
+              : "Type your message... (Enter to send, Shift+Enter for new line)"
           }
           disabled={disabled}
           rows={1}
@@ -45,9 +78,14 @@ export default function InputBar({ onSendMessage, isThinking, disabled, attachme
         <button
           style={{
             ...styles.sendBtn,
-            ...(isThinking || !input.trim() || disabled
-              ? styles.sendBtnDisabled
-              : {}),
+            background:
+              isThinking || !input.trim() || disabled
+                ? theme.bgHover
+                : theme.accent,
+            color:
+              isThinking || !input.trim() || disabled
+                ? theme.textMuted
+                : theme.textInverse,
           }}
           onClick={handleSend}
           disabled={isThinking || !input.trim() || disabled}
@@ -62,8 +100,21 @@ export default function InputBar({ onSendMessage, isThinking, disabled, attachme
 const styles = {
   container: {
     padding: "12px 20px 16px",
-    background: "#ffffff",
-    borderTop: "1px solid #ebebeb",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    flexShrink: 0,
+  },
+  attachmentsIndicator: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "6px",
+  },
+  attachmentTag: {
+    padding: "3px 10px",
+    borderRadius: "20px",
+    fontSize: "11px",
+    fontWeight: "500",
   },
   inputRow: {
     display: "flex",
@@ -72,35 +123,27 @@ const styles = {
   },
   textarea: {
     flex: 1,
-    background: "#f8f8f8",
-    border: "1px solid #ebebeb",
-    borderRadius: "10px",
-    color: "#1a1a1a",
-    padding: "11px 14px",
+    borderRadius: "12px",
+    padding: "11px 16px",
     fontSize: "14px",
     fontFamily: "inherit",
     resize: "none",
-    minHeight: "42px",
+    minHeight: "44px",
     maxHeight: "120px",
     outline: "none",
     lineHeight: "1.5",
+    transition: "border-color 0.15s",
   },
   sendBtn: {
-    background: "#2563eb",
-    color: "white",
     border: "none",
-    borderRadius: "10px",
+    borderRadius: "12px",
     cursor: "pointer",
-    height: "42px",
-    width: "42px",
+    height: "44px",
+    width: "44px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-  },
-  sendBtnDisabled: {
-    background: "#e8e8e8",
-    color: "#bbb",
-    cursor: "not-allowed",
+    transition: "background 0.15s",
   },
 };

@@ -6,29 +6,37 @@ import {
   Moon,
   Sun,
   Check,
-  ChevronRight,
+  Sliders,
 } from "lucide-react";
+import { useTheme } from "../ThemeContext";
 
 const MODELS = [
-  { id: "openai/gpt-oss-120b", name: "GPT OSS 120B", desc: "Most capable" },
-  { id: "openai/gpt-oss-20b", name: "GPT OSS 20B", desc: "Faster" },
-  { id: "qwen/qwen3.8-27b", name: "Qwen 3.8 27B", desc: "Alternative" },
+  { id: "openai/gpt-oss-120b", name: "GPT OSS 120B", desc: "Most capable — recommended" },
+  { id: "openai/gpt-oss-20b", name: "GPT OSS 20B", desc: "Faster responses" },
+  { id: "qwen/qwen3.8-27b", name: "Qwen 3.8 27B", desc: "Alternative model" },
 ];
 
 const AGENT_MODES = [
   { id: "ask", label: "Ask", desc: "Only suggest code, never modify files" },
-  { id: "assisted", label: "Assisted", desc: "Ask before making changes" },
-  { id: "auto", label: "Auto", desc: "Work independently" },
+  { id: "assisted", label: "Assisted", desc: "Ask before making important changes" },
+  { id: "auto", label: "Auto", desc: "Work independently without confirmation" },
 ];
 
-export default function Settings({ onClose }) {
+const NAV_ITEMS = [
+  { id: "model", label: "AI Model", icon: Bot },
+  { id: "api", label: "API Keys", icon: Key },
+  { id: "agent", label: "Agent Mode", icon: Sliders },
+  { id: "appearance", label: "Appearance", icon: Sun },
+];
+
+export default function Settings({ onClose, onThemeChange, currentTheme }) {
+  const { theme } = useTheme();
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
   const [agentMode, setAgentMode] = useState("assisted");
-  const [theme, setTheme] = useState("light");
-  const [saved, setSaved] = useState(false);
   const [activeSection, setActiveSection] = useState("model");
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -41,7 +49,6 @@ export default function Settings({ onClose }) {
       if (s.apiKey) setApiKey(s.apiKey);
       if (s.model) setSelectedModel(s.model);
       if (s.agentMode) setAgentMode(s.agentMode);
-      if (s.theme) setTheme(s.theme);
     }
   }
 
@@ -50,7 +57,7 @@ export default function Settings({ onClose }) {
       apiKey,
       model: selectedModel,
       agentMode,
-      theme,
+      theme: currentTheme,
     });
     setSaved(true);
     setTimeout(() => {
@@ -60,36 +67,59 @@ export default function Settings({ onClose }) {
   }
 
   return (
-    <div style={styles.container}>
+    <div
+      style={{
+        ...styles.container,
+        background: theme.bgMain,
+      }}
+    >
       {/* Header */}
-      <div style={styles.header}>
-        <span style={styles.headerTitle}>Settings</span>
-        <button style={styles.closeBtn} onClick={onClose}>
+      <div
+        style={{
+          ...styles.header,
+          background: theme.bgCard,
+          borderBottom: `1px solid ${theme.border}`,
+          boxShadow: theme.shadow,
+        }}
+      >
+        <span style={{ ...styles.headerTitle, color: theme.textPrimary }}>
+          Settings
+        </span>
+        <button
+          style={{ ...styles.closeBtn, color: theme.textMuted }}
+          onClick={onClose}
+        >
           <X size={18} />
         </button>
       </div>
 
       <div style={styles.body}>
         {/* Left Nav */}
-        <div style={styles.nav}>
-          {[
-            { id: "model", label: "AI Model", icon: <Bot size={15} /> },
-            { id: "api", label: "API Keys", icon: <Key size={15} /> },
-            { id: "agent", label: "Agent Mode", icon: <ChevronRight size={15} /> },
-            { id: "appearance", label: "Appearance", icon: <Sun size={15} /> },
-          ].map((item) => (
-            <button
-              key={item.id}
-              style={{
-                ...styles.navItem,
-                ...(activeSection === item.id ? styles.navItemActive : {}),
-              }}
-              onClick={() => setActiveSection(item.id)}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
+        <div
+          style={{
+            ...styles.nav,
+            background: theme.bgCard,
+            borderRight: `1px solid ${theme.border}`,
+          }}
+        >
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeSection === item.id;
+            return (
+              <button
+                key={item.id}
+                style={{
+                  ...styles.navItem,
+                  background: isActive ? theme.bgActive : "transparent",
+                  color: isActive ? theme.accent : theme.textSecondary,
+                }}
+                onClick={() => setActiveSection(item.id)}
+              >
+                <Icon size={15} />
+                {item.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Right Content */}
@@ -98,31 +128,49 @@ export default function Settings({ onClose }) {
           {/* AI Model */}
           {activeSection === "model" && (
             <div style={styles.section}>
-              <h3 style={styles.sectionTitle}>AI Model</h3>
-              <p style={styles.sectionDesc}>
+              <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
+                AI Model
+              </h3>
+              <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
                 Choose which model powers your coding agent.
               </p>
-              <div style={styles.modelList}>
-                {MODELS.map((model) => (
-                  <div
-                    key={model.id}
-                    style={{
-                      ...styles.modelItem,
-                      ...(selectedModel === model.id
-                        ? styles.modelItemActive
-                        : {}),
-                    }}
-                    onClick={() => setSelectedModel(model.id)}
-                  >
-                    <div style={styles.modelInfo}>
-                      <span style={styles.modelName}>{model.name}</span>
-                      <span style={styles.modelDesc}>{model.desc}</span>
+              <div style={styles.cardList}>
+                {MODELS.map((model) => {
+                  const isSelected = selectedModel === model.id;
+                  return (
+                    <div
+                      key={model.id}
+                      style={{
+                        ...styles.card,
+                        background: theme.bgCard,
+                        border: isSelected
+                          ? `2px solid ${theme.accent}`
+                          : `1px solid ${theme.border}`,
+                        boxShadow: isSelected ? `0 0 0 3px ${theme.accent}18` : theme.shadow,
+                      }}
+                      onClick={() => setSelectedModel(model.id)}
+                    >
+                      <div style={styles.cardInfo}>
+                        <span style={{ ...styles.cardTitle, color: theme.textPrimary }}>
+                          {model.name}
+                        </span>
+                        <span style={{ ...styles.cardDesc, color: theme.textMuted }}>
+                          {model.desc}
+                        </span>
+                      </div>
+                      {isSelected && (
+                        <div
+                          style={{
+                            ...styles.checkCircle,
+                            background: theme.accent,
+                          }}
+                        >
+                          <Check size={12} color="#fff" />
+                        </div>
+                      )}
                     </div>
-                    {selectedModel === model.id && (
-                      <Check size={16} color="#2563eb" />
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -130,29 +178,43 @@ export default function Settings({ onClose }) {
           {/* API Keys */}
           {activeSection === "api" && (
             <div style={styles.section}>
-              <h3 style={styles.sectionTitle}>API Configuration</h3>
-              <p style={styles.sectionDesc}>
+              <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
+                API Configuration
+              </h3>
+              <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
                 Your Groq API key for AI model access.
               </p>
               <div style={styles.field}>
-                <label style={styles.label}>Groq API Key</label>
+                <label style={{ ...styles.label, color: theme.textSecondary }}>
+                  Groq API Key
+                </label>
                 <div style={styles.inputRow}>
                   <input
-                    style={styles.input}
+                    style={{
+                      ...styles.input,
+                      background: theme.bgInput,
+                      border: `1px solid ${theme.border}`,
+                      color: theme.textPrimary,
+                    }}
                     type={showKey ? "text" : "password"}
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="gsk_..."
                   />
                   <button
-                    style={styles.toggleBtn}
+                    style={{
+                      ...styles.toggleBtn,
+                      background: theme.bgHover,
+                      border: `1px solid ${theme.border}`,
+                      color: theme.textSecondary,
+                    }}
                     onClick={() => setShowKey(!showKey)}
                   >
                     {showKey ? "Hide" : "Show"}
                   </button>
                 </div>
-                <span style={styles.fieldHint}>
-                  Get your API key from console.groq.com
+                <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+                  Get your free API key from console.groq.com
                 </span>
               </div>
             </div>
@@ -161,31 +223,66 @@ export default function Settings({ onClose }) {
           {/* Agent Mode */}
           {activeSection === "agent" && (
             <div style={styles.section}>
-              <h3 style={styles.sectionTitle}>Agent Mode</h3>
-              <p style={styles.sectionDesc}>
+              <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
+                Agent Mode
+              </h3>
+              <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
                 Control how much autonomy the agent has.
               </p>
-              <div style={styles.modeList}>
-                {AGENT_MODES.map((mode) => (
-                  <div
-                    key={mode.id}
-                    style={{
-                      ...styles.modeItem,
-                      ...(agentMode === mode.id ? styles.modeItemActive : {}),
-                    }}
-                    onClick={() => setAgentMode(mode.id)}
-                  >
-                    <div style={styles.modeRadio}>
-                      {agentMode === mode.id && (
-                        <div style={styles.modeRadioInner} />
-                      )}
+              <div style={styles.cardList}>
+                {AGENT_MODES.map((mode) => {
+                  const isSelected = agentMode === mode.id;
+                  return (
+                    <div
+                      key={mode.id}
+                      style={{
+                        ...styles.card,
+                        background: theme.bgCard,
+                        border: isSelected
+                          ? `2px solid ${theme.accent}`
+                          : `1px solid ${theme.border}`,
+                        boxShadow: isSelected
+                          ? `0 0 0 3px ${theme.accent}18`
+                          : theme.shadow,
+                      }}
+                      onClick={() => setAgentMode(mode.id)}
+                    >
+                      <div
+                        style={{
+                          ...styles.radio,
+                          border: `2px solid ${isSelected ? theme.accent : theme.border}`,
+                        }}
+                      >
+                        {isSelected && (
+                          <div
+                            style={{
+                              ...styles.radioInner,
+                              background: theme.accent,
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div style={styles.cardInfo}>
+                        <span
+                          style={{
+                            ...styles.cardTitle,
+                            color: theme.textPrimary,
+                          }}
+                        >
+                          {mode.label}
+                        </span>
+                        <span
+                          style={{
+                            ...styles.cardDesc,
+                            color: theme.textMuted,
+                          }}
+                        >
+                          {mode.desc}
+                        </span>
+                      </div>
                     </div>
-                    <div style={styles.modeInfo}>
-                      <span style={styles.modeLabel}>{mode.label}</span>
-                      <span style={styles.modeDesc}>{mode.desc}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -193,33 +290,45 @@ export default function Settings({ onClose }) {
           {/* Appearance */}
           {activeSection === "appearance" && (
             <div style={styles.section}>
-              <h3 style={styles.sectionTitle}>Appearance</h3>
-              <p style={styles.sectionDesc}>
+              <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
+                Appearance
+              </h3>
+              <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
                 Customize how the app looks.
               </p>
               <div style={styles.field}>
-                <label style={styles.label}>Theme</label>
+                <label style={{ ...styles.label, color: theme.textSecondary }}>
+                  Theme
+                </label>
                 <div style={styles.themeRow}>
-                  <button
-                    style={{
-                      ...styles.themeBtn,
-                      ...(theme === "light" ? styles.themeBtnActive : {}),
-                    }}
-                    onClick={() => setTheme("light")}
-                  >
-                    <Sun size={16} />
-                    Light
-                  </button>
-                  <button
-                    style={{
-                      ...styles.themeBtn,
-                      ...(theme === "dark" ? styles.themeBtnActive : {}),
-                    }}
-                    onClick={() => setTheme("dark")}
-                  >
-                    <Moon size={16} />
-                    Dark
-                  </button>
+                  {[
+                    { id: "light", label: "Light", icon: Sun },
+                    { id: "dark", label: "Dark", icon: Moon },
+                  ].map((t) => {
+                    const Icon = t.icon;
+                    const isSelected = currentTheme === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        style={{
+                          ...styles.themeBtn,
+                          background: isSelected
+                            ? theme.accentLight
+                            : theme.bgCard,
+                          border: isSelected
+                            ? `2px solid ${theme.accent}`
+                            : `1px solid ${theme.border}`,
+                          color: isSelected
+                            ? theme.accent
+                            : theme.textSecondary,
+                        }}
+                        onClick={() => onThemeChange(t.id)}
+                      >
+                        <Icon size={16} />
+                        {t.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -227,7 +336,14 @@ export default function Settings({ onClose }) {
 
           {/* Save Button */}
           <div style={styles.saveRow}>
-            <button style={styles.saveBtn} onClick={saveSettings}>
+            <button
+              style={{
+                ...styles.saveBtn,
+                background: saved ? theme.success : theme.accent,
+                color: theme.textInverse,
+              }}
+              onClick={saveSettings}
+            >
               {saved ? (
                 <><Check size={14} /> Saved!</>
               ) : (
@@ -246,27 +362,23 @@ const styles = {
     flex: 1,
     display: "flex",
     flexDirection: "column",
-    background: "#f5f5f5",
     overflow: "hidden",
   },
   header: {
-    padding: "16px 24px",
-    background: "#ffffff",
-    borderBottom: "1px solid #ebebeb",
+    padding: "14px 24px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
+    flexShrink: 0,
   },
   headerTitle: {
     fontSize: "16px",
     fontWeight: "600",
-    color: "#1a1a1a",
   },
   closeBtn: {
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#bbb",
     display: "flex",
     alignItems: "center",
     padding: "4px",
@@ -279,8 +391,6 @@ const styles = {
   },
   nav: {
     width: "180px",
-    background: "#ffffff",
-    borderRight: "1px solid #ebebeb",
     padding: "12px",
     display: "flex",
     flexDirection: "column",
@@ -297,17 +407,12 @@ const styles = {
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "13px",
-    color: "#666",
-    textAlign: "left",
     fontWeight: "500",
-  },
-  navItemActive: {
-    background: "#eff6ff",
-    color: "#2563eb",
+    textAlign: "left",
   },
   content: {
     flex: 1,
-    padding: "24px",
+    padding: "28px",
     overflowY: "auto",
     display: "flex",
     flexDirection: "column",
@@ -319,48 +424,65 @@ const styles = {
     flex: 1,
   },
   sectionTitle: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#1a1a1a",
+    fontSize: "18px",
+    fontWeight: "700",
     margin: 0,
   },
   sectionDesc: {
     fontSize: "13px",
-    color: "#888",
     margin: 0,
+    lineHeight: "1.5",
   },
-  modelList: {
+  cardList: {
     display: "flex",
     flexDirection: "column",
-    gap: "8px",
+    gap: "10px",
   },
-  modelItem: {
+  card: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     padding: "14px 16px",
-    background: "#ffffff",
-    border: "1px solid #ebebeb",
-    borderRadius: "10px",
+    borderRadius: "12px",
     cursor: "pointer",
+    transition: "all 0.15s",
+    gap: "12px",
   },
-  modelItemActive: {
-    border: "1.5px solid #2563eb",
-    background: "#eff6ff",
-  },
-  modelInfo: {
+  cardInfo: {
     display: "flex",
     flexDirection: "column",
     gap: "3px",
+    flex: 1,
   },
-  modelName: {
+  cardTitle: {
     fontSize: "14px",
     fontWeight: "600",
-    color: "#1a1a1a",
   },
-  modelDesc: {
+  cardDesc: {
     fontSize: "12px",
-    color: "#888",
+  },
+  checkCircle: {
+    width: "22px",
+    height: "22px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  radio: {
+    width: "18px",
+    height: "18px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  radioInner: {
+    width: "8px",
+    height: "8px",
+    borderRadius: "50%",
   },
   field: {
     display: "flex",
@@ -370,7 +492,6 @@ const styles = {
   label: {
     fontSize: "13px",
     fontWeight: "600",
-    color: "#444",
   },
   inputRow: {
     display: "flex",
@@ -379,102 +500,38 @@ const styles = {
   input: {
     flex: 1,
     padding: "10px 14px",
-    border: "1px solid #ebebeb",
     borderRadius: "8px",
     fontSize: "14px",
     outline: "none",
-    color: "#1a1a1a",
-    background: "#ffffff",
     fontFamily: "Monaco, Menlo, monospace",
   },
   toggleBtn: {
     padding: "10px 16px",
-    background: "#f5f5f5",
-    border: "1px solid #ebebeb",
     borderRadius: "8px",
     fontSize: "13px",
     cursor: "pointer",
-    color: "#666",
     flexShrink: 0,
   },
   fieldHint: {
     fontSize: "11px",
-    color: "#bbb",
-  },
-  modeList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-  modeItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    padding: "14px 16px",
-    background: "#ffffff",
-    border: "1px solid #ebebeb",
-    borderRadius: "10px",
-    cursor: "pointer",
-  },
-  modeItemActive: {
-    border: "1.5px solid #2563eb",
-    background: "#eff6ff",
-  },
-  modeRadio: {
-    width: "18px",
-    height: "18px",
-    borderRadius: "50%",
-    border: "2px solid #d0d0d0",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  modeRadioInner: {
-    width: "8px",
-    height: "8px",
-    borderRadius: "50%",
-    background: "#2563eb",
-  },
-  modeInfo: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "3px",
-  },
-  modeLabel: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#1a1a1a",
-  },
-  modeDesc: {
-    fontSize: "12px",
-    color: "#888",
   },
   themeRow: {
     display: "flex",
-    gap: "8px",
+    gap: "10px",
   },
   themeBtn: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
-    padding: "10px 20px",
-    background: "#ffffff",
-    border: "1px solid #ebebeb",
-    borderRadius: "8px",
-    fontSize: "13px",
+    padding: "12px 24px",
+    borderRadius: "10px",
+    fontSize: "14px",
     cursor: "pointer",
-    color: "#666",
     fontWeight: "500",
-  },
-  themeBtnActive: {
-    border: "1.5px solid #2563eb",
-    background: "#eff6ff",
-    color: "#2563eb",
   },
   saveRow: {
     marginTop: "auto",
-    paddingTop: "20px",
+    paddingTop: "24px",
     display: "flex",
     justifyContent: "flex-end",
   },
@@ -482,11 +539,9 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "6px",
-    padding: "10px 24px",
-    background: "#2563eb",
-    color: "white",
+    padding: "10px 28px",
     border: "none",
-    borderRadius: "8px",
+    borderRadius: "10px",
     fontSize: "14px",
     fontWeight: "600",
     cursor: "pointer",
