@@ -48,4 +48,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ipcRenderer.on("tool-status", (event, data) => callback(data)),
   removeToolStatusListener: () =>
   ipcRenderer.removeAllListeners("tool-status"),
+
+  // Knowledge Files
+  getKnowledgeFiles: (projectId) =>
+  ipcRenderer.invoke("get-knowledge-files", { projectId }),
+  saveKnowledgeFile: (projectId, file) =>
+  ipcRenderer.invoke("save-knowledge-file", { projectId, file }),
+  deleteKnowledgeFile: (projectId, fileName) =>
+  ipcRenderer.invoke("delete-knowledge-file", { projectId, fileName }),
+
+   // Project Memory
+  getProjectMemory: (projectId) =>
+  ipcRenderer.invoke("get-project-memory", { projectId }),
+
+  // Rename Chat
+  renameChat: (projectId, chatId, newTitle) =>
+  ipcRenderer.invoke("rename-chat", { projectId, chatId, newTitle }),
 });

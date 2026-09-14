@@ -321,3 +321,96 @@ ipcMain.handle("save-settings", async (event, { settings }) => {
     return { success: false, error: error.message };
   }
 });
+
+// ─── IPC: Knowledge Files ─────────────────────────────────
+ipcMain.handle("get-knowledge-files", async (event, { projectId }) => {
+  try {
+    const dir = path.join(getProjectDir(projectId), "knowledge");
+    if (!fs.existsSync(dir)) return { success: true, files: [] };
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
+    const result = files.map((file) => {
+      const data = JSON.parse(
+        fs.readFileSync(path.join(dir, file), "utf-8")
+      );
+      return data;
+    });
+    return { success: true, files: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("save-knowledge-file", async (event, { projectId, file }) => {
+  try {
+    const dir = path.join(getProjectDir(projectId), "knowledge");
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const filePath = path.join(dir, `${file.name}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(file, null, 2));
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("delete-knowledge-file", async (event, { projectId, fileName }) => {
+  try {
+    const dir = path.join(getProjectDir(projectId), "knowledge");
+    const filePath = path.join(dir, `${fileName}.json`);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ─── IPC: Project Memory ──────────────────────────────────
+ipcMain.handle("get-project-memory", async (event, { projectId }) => {
+  try {
+    const memoryFile = path.join(
+      __dirname,
+      "../memory/agent-memory.json"
+    );
+    if (!fs.existsSync(memoryFile)) {
+      return { success: true, memory: "" };
+    }
+    const data = JSON.parse(fs.readFileSync(memoryFile, "utf-8"));
+    const lines = [];
+    if (data.preferences?.length > 0) {
+      lines.push("PREFERENCES:");
+      data.preferences.forEach((p) => lines.push(`  - ${p}`));
+    }
+    if (data.projectDecisions?.length > 0) {
+      lines.push("\nPROJECT DECISIONS:");
+      data.projectDecisions.forEach((d) => lines.push(`  - ${d}`));
+    }
+    if (data.completedTasks?.length > 0) {
+      lines.push("\nCOMPLETED TASKS:");
+      data.completedTasks.forEach((t) => lines.push(`  - ${t}`));
+    }
+    if (data.notes?.length > 0) {
+      lines.push("\nNOTES:");
+      data.notes.forEach((n) => lines.push(`  - ${n}`));
+    }
+    return { success: true, memory: lines.join("\n") };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ─── IPC: Rename Chat ─────────────────────────────────────
+ipcMain.handle("rename-chat", async (event, { projectId, chatId, newTitle }) => {
+  try {
+    const chatsDir = getChatsDir(projectId);
+    const chatFile = path.join(chatsDir, `${chatId}.json`);
+    if (!fs.existsSync(chatFile)) {
+      return { success: false, error: "Chat not found" };
+    }
+    const chat = JSON.parse(fs.readFileSync(chatFile, "utf-8"));
+    chat.title = newTitle;
+    chat.updatedAt = Date.now();
+    fs.writeFileSync(chatFile, JSON.stringify(chat, null, 2));
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
