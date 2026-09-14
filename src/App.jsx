@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Bot, Moon, Sun } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
@@ -30,6 +30,13 @@ export default function App() {
   const [isThinking, setIsThinking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [toolStatuses, setToolStatuses] = useState([]);
+  const abortRef = useRef(false);
+
+  // stop function
+function handleStopMessage() {
+  abortRef.current = true;
+  setIsThinking(false);
+}
 
   useEffect(() => {
     window.electronAPI.onToolStatus((data) => {
@@ -54,6 +61,7 @@ export default function App() {
   }, []);
 
   async function handleSendMessage(fullMessage, displayMessage) {
+    abortRef.current = false;
     if (!activeChat || !activeProject) return;
 
     setToolStatuses([]);
@@ -174,6 +182,7 @@ export default function App() {
             activeChat={activeChat}
             isThinking={isThinking}
             onSendMessage={handleSendMessage}
+            onStopMessage={handleStopMessage}
             toolStatuses={toolStatuses}
           />
         )}

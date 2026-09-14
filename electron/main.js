@@ -22,6 +22,39 @@ function createWindow() {
     backgroundColor: "#ffffff",
   });
 
+  // Right click context menu
+const { Menu, MenuItem } = require("electron");
+
+mainWindow.webContents.on("context-menu", (event, params) => {
+  const menu = new Menu();
+
+  if (params.selectionText) {
+    menu.append(new MenuItem({
+      label: "Copy",
+      click: () => mainWindow.webContents.copy(),
+    }));
+  }
+
+  if (params.isEditable) {
+    menu.append(new MenuItem({
+      label: "Cut",
+      click: () => mainWindow.webContents.cut(),
+    }));
+    menu.append(new MenuItem({
+      label: "Paste",
+      click: () => mainWindow.webContents.paste(),
+    }));
+    menu.append(new MenuItem({
+      label: "Select All",
+      click: () => mainWindow.webContents.selectAll(),
+    }));
+  }
+
+  if (menu.items.length > 0) {
+    menu.popup();
+  }
+});
+
   if (isDev) {
     const tryLoad = () => {
       mainWindow.loadURL("http://localhost:3000").catch(() => {
@@ -48,6 +81,8 @@ app.whenReady().then(() => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
+
+
 
 // ─── Agent ───────────────────────────────────────────────
 let agentInstance = null;

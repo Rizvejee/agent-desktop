@@ -18,7 +18,9 @@
     "groq-sdk": "^1.6.0",
     "lucide-react": "^1.44.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^16.1.1"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.2.0",

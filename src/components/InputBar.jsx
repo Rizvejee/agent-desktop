@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { Send } from "lucide-react";
+import { useState, useRef } from "react";
+import { Send, Square, Loader } from "lucide-react";
 import { useTheme } from "../ThemeContext";
 
-export default function InputBar({ onSendMessage, isThinking, disabled, attachments }) {
+export default function InputBar({ onSendMessage, onStopMessage, isThinking, disabled, attachments }) {
   const { theme } = useTheme();
   const [input, setInput] = useState("");
 
@@ -11,10 +11,11 @@ export default function InputBar({ onSendMessage, isThinking, disabled, attachme
 
     let fullMessage = input.trim();
     if (attachments && attachments.length > 0) {
-      const attachmentContext = attachments
+      const ctx = attachments
+        .filter((a) => a.type !== "image")
         .map((a) => `--- File: ${a.name} ---\n${a.content}`)
         .join("\n\n");
-      fullMessage = `${fullMessage}\n\nAttached files:\n${attachmentContext}`;
+      if (ctx) fullMessage += `\n\nAttached files:\n${ctx}`;
     }
 
     onSendMessage(fullMessage, input.trim());
@@ -28,18 +29,30 @@ export default function InputBar({ onSendMessage, isThinking, disabled, attachme
     }
   }
 
+  // Send button کا content
+  function renderSendBtn() {
+    if (isThinking) {
+      return (
+        <div style={styles.sendBtnInner}>
+          <div style={styles.spinnerRing} />
+          <Square size={10} style={styles.stopIcon} />
+        </div>
+      );
+    }
+    return <Send size={16} />;
+  }
+
   return (
     <div
       style={{
         ...styles.container,
         background: theme.bgCard,
         borderTop: `1px solid ${theme.border}`,
-        boxShadow: `0 -1px 3px rgba(0,0,0,0.04)`,
       }}
     >
       {/* Attachments indicator */}
       {attachments && attachments.length > 0 && (
-        <div style={styles.attachmentsIndicator}>
+        <div style={styles.attachmentsList}>
           {attachments.map((file) => (
             <span
               key={file.name}
@@ -63,6 +76,7 @@ export default function InputBar({ onSendMessage, isThinking, disabled, attachme
             background: theme.bgInput,
             border: `1px solid ${theme.border}`,
             color: theme.textPrimary,
+            direction: "auto",
           }}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -75,37 +89,52 @@ export default function InputBar({ onSendMessage, isThinking, disabled, attachme
           disabled={disabled}
           rows={1}
         />
+
+        {/* Send / Stop button */}
         <button
           style={{
             ...styles.sendBtn,
-            background:
-              isThinking || !input.trim() || disabled
-                ? theme.bgHover
-                : theme.accent,
-            color:
-              isThinking || !input.trim() || disabled
-                ? theme.textMuted
-                : theme.textInverse,
+            background: isThinking
+              ? theme.bgCard
+              : !input.trim() || disabled
+              ? theme.bgHover
+              : theme.accent,
+            border: isThinking
+              ? `2px solid ${theme.accent}`
+              : "none",
+            color: isThinking
+              ? theme.accent
+              : !input.trim() || disabled
+              ? theme.textMuted
+              : "#fff",
           }}
-          onClick={handleSend}
-          disabled={isThinking || !input.trim() || disabled}
+          onClick={isThinking ? onStopMessage : handleSend}
+          disabled={!isThinking && (!input.trim() || disabled)}
+          title={isThinking ? "Stop" : "Send"}
         >
-          <Send size={16} />
+          {renderSendBtn()}
         </button>
       </div>
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
 
 const styles = {
   container: {
-    padding: "12px 20px 16px",
+    padding: "10px 16px 14px",
     display: "flex",
     flexDirection: "column",
     gap: "8px",
     flexShrink: 0,
   },
-  attachmentsIndicator: {
+  attachmentsList: {
     display: "flex",
     flexWrap: "wrap",
     gap: "6px",
@@ -126,16 +155,14 @@ const styles = {
     borderRadius: "12px",
     padding: "11px 16px",
     fontSize: "14px",
-    fontFamily: "inherit",
+    fontFamily: "'Segoe UI', 'Noto Nastaliq Urdu', Arial, sans-serif",
     resize: "none",
     minHeight: "44px",
-    maxHeight: "120px",
+    maxHeight: "160px",
     outline: "none",
-    lineHeight: "1.5",
-    transition: "border-color 0.15s",
+    lineHeight: "1.6",
   },
   sendBtn: {
-    border: "none",
     borderRadius: "12px",
     cursor: "pointer",
     height: "44px",
@@ -144,6 +171,27 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-    transition: "background 0.15s",
+    transition: "all 0.2s",
+    position: "relative",
+  },
+  sendBtnInner: {
+    position: "relative",
+    width: "24px",
+    height: "24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  spinnerRing: {
+    position: "absolute",
+    width: "24px",
+    height: "24px",
+    borderRadius: "50%",
+    border: "2px solid transparent",
+    borderTopColor: "currentColor",
+    animation: "spin 0.8s linear infinite",
+  },
+  stopIcon: {
+    position: "absolute",
   },
 };

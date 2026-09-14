@@ -1,16 +1,65 @@
-import { useEffect, useRef } from "react";
-import {
-  Bot,
-  User,
-  FileText,
-  Edit,
-  List,
-  Search,
-  Terminal,
-  Check,
-  Loader,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bot, User, FileText, Edit, List, Search, Terminal, Check, Loader, Copy } from "lucide-react";
 import { useTheme } from "../ThemeContext";
+import ReactMarkdown from "react-markdown";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneLight, oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+
+function CodeBlock({ language, code, theme, mode }) {
+  const [copied, setCopied] = useState(false);
+
+  function copyCode() {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div
+      style={{
+        ...codeStyles.container,
+        background: mode === "dark" ? "#1a1a2e" : "#f8f8f8",
+        border: `1px solid ${theme.border}`,
+      }}
+    >
+      <div
+        style={{
+          ...codeStyles.header,
+          background: mode === "dark" ? "#16213e" : "#f0f0f0",
+          borderBottom: `1px solid ${theme.border}`,
+        }}
+      >
+        <span style={{ ...codeStyles.language, color: theme.textMuted }}>
+          {language || "code"}
+        </span>
+        <button
+          style={{
+            ...codeStyles.copyBtn,
+            color: copied ? theme.success : theme.textMuted,
+            background: copied ? theme.successBg : "transparent",
+          }}
+          onClick={copyCode}
+        >
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+      <SyntaxHighlighter
+        language={language || "javascript"}
+        style={mode === "dark" ? oneDark : oneLight}
+        customStyle={{
+          margin: 0,
+          padding: "14px 16px",
+          background: "transparent",
+          fontSize: "13px",
+          lineHeight: "1.6",
+        }}
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  );
+}
 
 function ToolStatusItem({ tool, status, input, theme }) {
   const getToolInfo = () => {
@@ -39,30 +88,118 @@ function ToolStatusItem({ tool, status, input, theme }) {
         {isDone ? (
           <Check size={12} color={theme.success} />
         ) : (
-          <Loader
-            size={12}
-            color={theme.accent}
-            style={{ animation: "spin 1s linear infinite" }}
-          />
+          <Loader size={12} color={theme.accent} style={{ animation: "spin 1s linear infinite" }} />
         )}
       </span>
-      <span style={{ ...toolStyles.toolIcon, color: theme.textMuted }}>
-        {icon}
-      </span>
-      <span
-        style={{
-          ...toolStyles.label,
-          color: isDone ? theme.textMuted : theme.textSecondary,
-        }}
-      >
+      <span style={{ ...toolStyles.toolIcon, color: theme.textMuted }}>{icon}</span>
+      <span style={{ ...toolStyles.label, color: isDone ? theme.textMuted : theme.textSecondary }}>
         {label}
       </span>
     </div>
   );
 }
 
+function AgentMessage({ content, theme, mode }) {
+  return (
+    <div style={{ ...agentStyles.container, color: theme.textPrimary }}>
+      <ReactMarkdown
+        components={{
+          // Code blocks
+          code({ node, inline, className, children, ...props }) {
+            const match = /language-(\w+)/.exec(className || "");
+            const language = match ? match[1] : "";
+            const code = String(children).replace(/\n$/, "");
+
+            if (!inline && (match || code.includes("\n"))) {
+              return (
+                <CodeBlock
+                  language={language}
+                  code={code}
+                  theme={theme}
+                  mode={mode}
+                />
+              );
+            }
+
+            return (
+              <code
+                style={{
+                  ...agentStyles.inlineCode,
+                  background: theme.bgHover,
+                  color: theme.accent,
+                  border: `1px solid ${theme.border}`,
+                }}
+                {...props}
+              >
+                {children}
+              </code>
+            );
+          },
+          // Paragraphs
+          p({ children }) {
+            return (
+              <p style={agentStyles.paragraph}>{children}</p>
+            );
+          },
+          // Headings
+          h1({ children }) {
+            return <h1 style={{ ...agentStyles.heading, fontSize: "20px" }}>{children}</h1>;
+          },
+          h2({ children }) {
+            return <h2 style={{ ...agentStyles.heading, fontSize: "17px" }}>{children}</h2>;
+          },
+          h3({ children }) {
+            return <h3 style={{ ...agentStyles.heading, fontSize: "15px" }}>{children}</h3>;
+          },
+          // Lists
+          ul({ children }) {
+            return <ul style={agentStyles.list}>{children}</ul>;
+          },
+          ol({ children }) {
+            return <ol style={agentStyles.list}>{children}</ol>;
+          },
+          li({ children }) {
+            return <li style={agentStyles.listItem}>{children}</li>;
+          },
+          // Bold
+          strong({ children }) {
+            return (
+              <strong style={{ fontWeight: "600", color: theme.textPrimary }}>
+                {children}
+              </strong>
+            );
+          },
+          // Blockquote
+          blockquote({ children }) {
+            return (
+              <blockquote
+                style={{
+                  ...agentStyles.blockquote,
+                  borderLeft: `3px solid ${theme.accent}`,
+                  background: theme.accentLight,
+                  color: theme.textSecondary,
+                }}
+              >
+                {children}
+              </blockquote>
+            );
+          },
+          // Horizontal rule
+          hr() {
+            return (
+              <hr style={{ border: "none", borderTop: `1px solid ${theme.border}`, margin: "16px 0" }} />
+            );
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
 export default function MessageList({ messages, isThinking, toolStatuses }) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   const endRef = useRef(null);
 
   useEffect(() => {
@@ -70,115 +207,75 @@ export default function MessageList({ messages, isThinking, toolStatuses }) {
   }, [messages, isThinking, toolStatuses]);
 
   return (
-    <div
-      style={{
-        ...styles.container,
-        background: theme.bgMain,
-      }}
-    >
+    <div style={{ ...styles.container, background: theme.bgMain }}>
       {messages.map((msg, index) => (
-        <div
-          key={index}
-          style={{
-            ...styles.messageWrapper,
-            ...(msg.role === "user"
-              ? styles.wrapperUser
-              : styles.wrapperAgent),
-          }}
-        >
-          {msg.role !== "system" && (
-            <div
-              style={{
-                ...styles.avatar,
-                ...(msg.role === "user"
-                  ? { background: theme.accent, color: theme.textInverse }
-                  : { background: theme.bgHover, color: theme.textSecondary }),
-              }}
-            >
-              {msg.role === "user" ? (
-                <User size={14} />
-              ) : (
-                <Bot size={14} />
-              )}
+        <div key={index}>
+          {msg.role === "user" && (
+            <div style={styles.userWrapper}>
+              <div
+                style={{
+                  ...styles.userCard,
+                  background: theme.msgUser,
+                  color: theme.msgUserText,
+                }}
+              >
+                <div style={styles.userContent}>{msg.content}</div>
+              </div>
             </div>
           )}
 
-          <div
-            style={{
-              ...styles.bubble,
-              ...(msg.role === "user"
-                ? {
-                    background: theme.msgUser,
-                    color: theme.msgUserText,
-                    borderTopRightRadius: "4px",
-                  }
-                : msg.role === "agent"
-                ? {
-                    background: theme.msgAgent,
-                    color: theme.msgAgentText,
-                    border: `1px solid ${theme.msgAgentBorder}`,
-                    borderTopLeftRadius: "4px",
-                    boxShadow: theme.shadow,
-                  }
-                : {
-                    background: theme.successBg,
-                    color: theme.success,
-                    borderRadius: "20px",
-                    padding: "6px 16px",
-                    fontSize: "12px",
-                  }),
-            }}
-          >
-            {msg.role !== "system" && (
+          {msg.role === "agent" && (
+            <div style={styles.agentWrapper}>
               <div
                 style={{
-                  ...styles.senderName,
-                  color:
-                    msg.role === "user"
-                      ? "rgba(255,255,255,0.7)"
-                      : theme.textMuted,
+                  ...styles.agentAvatar,
+                  background: theme.bgHover,
+                  color: theme.textSecondary,
                 }}
               >
-                {msg.role === "user" ? "You" : "Coder"}
+                <Bot size={15} />
               </div>
-            )}
-            <div style={styles.content}>{msg.content}</div>
-          </div>
+              <div style={styles.agentContent}>
+                <span style={{ ...styles.agentName, color: theme.textMuted }}>
+                  Coder
+                </span>
+                <AgentMessage content={msg.content} theme={theme} mode={mode} />
+              </div>
+            </div>
+          )}
+
+          {msg.role === "system" && (
+            <div style={styles.systemWrapper}>
+              <span
+                style={{
+                  ...styles.systemMsg,
+                  background: theme.successBg,
+                  color: theme.success,
+                }}
+              >
+                {msg.content}
+              </span>
+            </div>
+          )}
         </div>
       ))}
 
-      {/* Thinking / Tool Status */}
+      {/* Thinking */}
       {isThinking && (
-        <div style={styles.messageWrapper}>
+        <div style={styles.agentWrapper}>
           <div
             style={{
-              ...styles.avatar,
+              ...styles.agentAvatar,
               background: theme.bgHover,
               color: theme.textSecondary,
             }}
           >
-            <Bot size={14} />
+            <Bot size={15} />
           </div>
-          <div
-            style={{
-              ...styles.bubble,
-              background: theme.msgAgent,
-              border: `1px solid ${theme.msgAgentBorder}`,
-              borderTopLeftRadius: "4px",
-              boxShadow: theme.shadow,
-              color: theme.msgAgentText,
-              minWidth: "220px",
-            }}
-          >
-            <div
-              style={{
-                ...styles.senderName,
-                color: theme.textMuted,
-              }}
-            >
+          <div style={styles.agentContent}>
+            <span style={{ ...styles.agentName, color: theme.textMuted }}>
               Coder
-            </div>
-
+            </span>
             {toolStatuses && toolStatuses.length > 0 ? (
               <div style={toolStyles.container}>
                 {toolStatuses.map((ts, i) => (
@@ -193,27 +290,9 @@ export default function MessageList({ messages, isThinking, toolStatuses }) {
               </div>
             ) : (
               <div style={styles.thinkingDots}>
-                <span
-                  style={{
-                    ...styles.dot,
-                    background: theme.textMuted,
-                    animationDelay: "0ms",
-                  }}
-                />
-                <span
-                  style={{
-                    ...styles.dot,
-                    background: theme.textMuted,
-                    animationDelay: "150ms",
-                  }}
-                />
-                <span
-                  style={{
-                    ...styles.dot,
-                    background: theme.textMuted,
-                    animationDelay: "300ms",
-                  }}
-                />
+                <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "0ms" }} />
+                <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "150ms" }} />
+                <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "300ms" }} />
               </div>
             )}
           </div>
@@ -243,16 +322,31 @@ const styles = {
     padding: "24px 20px",
     display: "flex",
     flexDirection: "column",
-    gap: "20px",
+    gap: "24px",
   },
-  messageWrapper: {
+  userWrapper: {
+    display: "flex",
+    justifyContent: "flex-end",
+  },
+  userCard: {
+    maxWidth: "70%",
+    padding: "10px 16px",
+    borderRadius: "18px",
+    borderBottomRightRadius: "4px",
+    fontSize: "14px",
+    lineHeight: "1.6",
+    fontFamily: "'Segoe UI', 'Noto Nastaliq Urdu', Arial, sans-serif",
+  },
+  userContent: {
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+  agentWrapper: {
     display: "flex",
     alignItems: "flex-start",
-    gap: "10px",
+    gap: "12px",
   },
-  wrapperUser: { flexDirection: "row-reverse" },
-  wrapperAgent: { flexDirection: "row" },
-  avatar: {
+  agentAvatar: {
     width: "32px",
     height: "32px",
     borderRadius: "50%",
@@ -260,30 +354,35 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    marginTop: "2px",
   },
-  bubble: {
-    maxWidth: "75%",
-    padding: "12px 16px",
-    borderRadius: "16px",
-    fontSize: "14px",
-    lineHeight: "1.6",
+  agentContent: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+    minWidth: 0,
   },
-  senderName: {
-    fontSize: "11px",
+  agentName: {
+    fontSize: "12px",
     fontWeight: "600",
-    marginBottom: "5px",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
   },
-  content: {
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
+  systemWrapper: {
+    display: "flex",
+    justifyContent: "center",
+  },
+  systemMsg: {
+    padding: "4px 14px",
+    borderRadius: "20px",
+    fontSize: "12px",
   },
   thinkingDots: {
     display: "flex",
     gap: "5px",
     alignItems: "center",
-    marginTop: "4px",
+    padding: "4px 0",
   },
   dot: {
     width: "7px",
@@ -294,12 +393,82 @@ const styles = {
   },
 };
 
+const agentStyles = {
+  container: {
+    fontSize: "14px",
+    lineHeight: "1.7",
+    fontFamily: "'Segoe UI', 'Noto Nastaliq Urdu', Arial, sans-serif",
+    userSelect: "text",
+    cursor: "text",
+  },
+  paragraph: {
+    margin: "0 0 12px 0",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+  heading: {
+    fontWeight: "700",
+    margin: "16px 0 8px 0",
+    lineHeight: "1.4",
+  },
+  list: {
+    margin: "0 0 12px 0",
+    paddingLeft: "20px",
+  },
+  listItem: {
+    margin: "4px 0",
+    lineHeight: "1.6",
+  },
+  inlineCode: {
+    padding: "2px 6px",
+    borderRadius: "4px",
+    fontSize: "13px",
+    fontFamily: "Monaco, Menlo, monospace",
+  },
+  blockquote: {
+    margin: "12px 0",
+    padding: "8px 14px",
+    borderRadius: "0 8px 8px 0",
+  },
+};
+
+const codeStyles = {
+  container: {
+    borderRadius: "10px",
+    overflow: "hidden",
+    margin: "10px 0",
+  },
+  header: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "8px 14px",
+  },
+  language: {
+    fontSize: "11px",
+    fontFamily: "Monaco, Menlo, monospace",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  copyBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    fontSize: "12px",
+    padding: "3px 8px",
+    borderRadius: "5px",
+  },
+};
+
 const toolStyles = {
   container: {
     display: "flex",
     flexDirection: "column",
     gap: "6px",
-    marginTop: "4px",
+    padding: "4px 0",
   },
   item: {
     display: "flex",

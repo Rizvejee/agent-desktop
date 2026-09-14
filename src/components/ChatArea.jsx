@@ -18,6 +18,7 @@ export default function ChatArea({
   activeChat,
   isThinking,
   onSendMessage,
+  onStopMessage,
   toolStatuses,
 }) {
   const { theme } = useTheme();
@@ -366,6 +367,7 @@ export default function ChatArea({
       {/* Input */}
       <InputBar
         onSendMessage={onSendMessage}
+        onStopMessage={onStopMessage}
         isThinking={isThinking}
         disabled={false}
         attachments={attachments}
