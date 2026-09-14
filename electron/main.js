@@ -91,6 +91,16 @@ function getAgent(projectPath) {
   if (!agentInstance || agentInstance.projectPath !== projectPath) {
     const Agent = require("../agent-src/agent");
     agentInstance = new Agent(projectPath);
+
+    // settings file سے agent settings لوڈ کریں
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf-8"));
+      if (settings.agentSettings) {
+        agentInstance.systemPrompt = agentInstance.buildSystemPrompt(
+          settings.agentSettings
+        );
+      }
+    }
   }
   return agentInstance;
 }
@@ -303,6 +313,8 @@ ipcMain.handle("save-settings", async (event, { settings }) => {
     if (settings.apiKey) {
       process.env.GROQ_API_KEY = settings.apiKey;
     }
+    // agent reset کریں تاکہ نئی settings apply ہوں
+    agentInstance = null;
 
     return { success: true };
   } catch (error) {

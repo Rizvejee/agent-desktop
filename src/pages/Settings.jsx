@@ -23,9 +23,10 @@ const AGENT_MODES = [
 ];
 
 const NAV_ITEMS = [
+  { id: "agent-config", label: "Agent", icon: Bot },
   { id: "model", label: "AI Model", icon: Bot },
   { id: "api", label: "API Keys", icon: Key },
-  { id: "agent", label: "Agent Mode", icon: Sliders },
+  { id: "agentmode", label: "Agent Mode", icon: Sliders },
   { id: "appearance", label: "Appearance", icon: Sun },
 ];
 
@@ -37,6 +38,21 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
   const [agentMode, setAgentMode] = useState("assisted");
   const [activeSection, setActiveSection] = useState("model");
   const [saved, setSaved] = useState(false);
+  const [agentName, setAgentName] = useState("Coder");
+  const [agentRole, setAgentRole] = useState("Personal AI Coding Assistant");
+  const [agentLanguage, setAgentLanguage] = useState("English");
+  const [agentRules, setAgentRules] = useState(
+  "Always write clean, readable and reusable code.\nFollow DRY principles and existing project architecture.\nDo not add unnecessary dependencies.\nKeep explanations concise."
+   );
+  const [agentTechnologies, setAgentTechnologies] = useState([
+  "React",
+  "React Native",
+  "Next.js",
+  "Expo",
+  "JavaScript",
+  "HTML",
+  "CSS",
+]);
 
   useEffect(() => {
     loadSettings();
@@ -49,6 +65,14 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
       if (s.apiKey) setApiKey(s.apiKey);
       if (s.model) setSelectedModel(s.model);
       if (s.agentMode) setAgentMode(s.agentMode);
+      // agent settings
+      if (s.agentSettings) {
+        if (s.agentSettings.name) setAgentName(s.agentSettings.name);
+        if (s.agentSettings.role) setAgentRole(s.agentSettings.role);
+        if (s.agentSettings.language) setAgentLanguage(s.agentSettings.language);
+        if (s.agentSettings.rules) setAgentRules(s.agentSettings.rules);
+        if (s.agentSettings.technologies) setAgentTechnologies(s.agentSettings.technologies);
+      }
     }
   }
 
@@ -58,6 +82,13 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
       model: selectedModel,
       agentMode,
       theme: currentTheme,
+      agentSettings: {
+        name: agentName,
+        role: agentRole,
+        language: agentLanguage,
+        rules: agentRules,
+        technologies: agentTechnologies,
+      },
     });
     setSaved(true);
     setTimeout(() => {
@@ -124,6 +155,150 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
 
         {/* Right Content */}
         <div style={styles.content}>
+
+        {activeSection === "agent-config" && (
+  <div style={styles.section}>
+    <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
+      Agent Configuration
+    </h3>
+    <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
+      Customize your agent's identity, language and behavior.
+    </p>
+
+    {/* Name */}
+    <div style={styles.field}>
+      <label style={{ ...styles.label, color: theme.textSecondary }}>
+        Agent Name
+      </label>
+      <input
+        style={{
+          ...styles.input,
+          background: theme.bgInput,
+          border: `1px solid ${theme.border}`,
+          color: theme.textPrimary,
+        }}
+        value={agentName}
+        onChange={(e) => setAgentName(e.target.value)}
+        placeholder="Coder"
+      />
+    </div>
+
+    {/* Role */}
+    <div style={styles.field}>
+      <label style={{ ...styles.label, color: theme.textSecondary }}>
+        Agent Role
+      </label>
+      <input
+        style={{
+          ...styles.input,
+          background: theme.bgInput,
+          border: `1px solid ${theme.border}`,
+          color: theme.textPrimary,
+        }}
+        value={agentRole}
+        onChange={(e) => setAgentRole(e.target.value)}
+        placeholder="Personal AI Coding Assistant"
+      />
+    </div>
+
+    {/* Language */}
+    <div style={styles.field}>
+      <label style={{ ...styles.label, color: theme.textSecondary }}>
+        Language
+      </label>
+      <select
+        style={{
+          ...styles.input,
+          background: theme.bgInput,
+          border: `1px solid ${theme.border}`,
+          color: theme.textPrimary,
+          cursor: "pointer",
+        }}
+        value={agentLanguage}
+        onChange={(e) => setAgentLanguage(e.target.value)}
+      >
+        <option value="English">English</option>
+        <option value="Urdu">Urdu</option>
+        <option value="Roman Urdu">Roman Urdu</option>
+        <option value="Hindi">Hindi</option>
+      </select>
+    </div>
+
+    {/* Technologies */}
+    <div style={styles.field}>
+      <label style={{ ...styles.label, color: theme.textSecondary }}>
+        Technologies
+      </label>
+      <div style={styles.techGrid}>
+        {[
+          "React",
+          "React Native",
+          "Next.js",
+          "Expo",
+          "JavaScript",
+          "Electron Plus React",
+          "HTML",
+          "CSS",
+          "Node.js",
+          "Express",
+        ].map((tech) => {
+          const isSelected = agentTechnologies.includes(tech);
+          return (
+            <button
+              key={tech}
+              style={{
+                ...styles.techBtn,
+                background: isSelected ? theme.accentLight : theme.bgCard,
+                border: isSelected
+                  ? `1.5px solid ${theme.accent}`
+                  : `1px solid ${theme.border}`,
+                color: isSelected ? theme.accent : theme.textSecondary,
+              }}
+              onClick={() => {
+                if (isSelected) {
+                  setAgentTechnologies((prev) =>
+                    prev.filter((t) => t !== tech)
+                  );
+                } else {
+                  setAgentTechnologies((prev) => [...prev, tech]);
+                }
+              }}
+            >
+              {isSelected && <Check size={11} />}
+              {tech}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+
+    {/* Rules */}
+    <div style={styles.field}>
+      <label style={{ ...styles.label, color: theme.textSecondary }}>
+        Rules & Behavior
+      </label>
+      <textarea
+        style={{
+          ...styles.input,
+          background: theme.bgInput,
+          border: `1px solid ${theme.border}`,
+          color: theme.textPrimary,
+          height: "120px",
+          resize: "vertical",
+          fontFamily: "inherit",
+          lineHeight: "1.6",
+          padding: "10px 14px",
+        }}
+        value={agentRules}
+        onChange={(e) => setAgentRules(e.target.value)}
+        placeholder="- Always write clean code&#10;- Follow existing architecture&#10;- No unnecessary dependencies"
+      />
+      <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+        Each rule on a new line. These apply to all projects.
+      </span>
+    </div>
+  </div>
+)}
 
           {/* AI Model */}
           {activeSection === "model" && (
@@ -221,7 +396,7 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
           )}
 
           {/* Agent Mode */}
-          {activeSection === "agent" && (
+          {activeSection === "agentmode" && (
             <div style={styles.section}>
               <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
                 Agent Mode
@@ -545,5 +720,21 @@ const styles = {
     fontSize: "14px",
     fontWeight: "600",
     cursor: "pointer",
+  },
+  techGrid: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+  },
+  techBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "5px",
+    padding: "6px 12px",
+    borderRadius: "20px",
+    fontSize: "12px",
+    fontWeight: "500",
+    cursor: "pointer",
+    transition: "all 0.15s",
   },
 };
