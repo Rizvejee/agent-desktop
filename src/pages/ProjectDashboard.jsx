@@ -140,6 +140,129 @@ function RenameModal({ title, value, onSave, onClose, theme }) {
   );
 }
 
+function AddKnowledgeModal({ onClose, onSaveFile, onUploadFile, theme }) {
+  const [name, setName] = useState("");
+  const [content, setContent] = useState("");
+
+  async function handleSave() {
+    if (!name.trim() || !content.trim()) return;
+    await onSaveFile({ name: name.trim(), content: content.trim() });
+    onClose();
+  }
+
+  return (
+    <div style={modalStyles.overlay}>
+      <div
+        style={{
+          ...modalStyles.modal,
+          background: theme.bgCard,
+          border: `1px solid ${theme.border}`,
+          boxShadow: theme.shadowMd,
+          width: "480px",
+        }}
+      >
+        <div style={modalStyles.header}>
+          <span style={{ ...modalStyles.title, color: theme.textPrimary }}>
+            Add Knowledge
+          </span>
+          <button
+            style={{ ...modalStyles.closeBtn, color: theme.textMuted }}
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Upload File */}
+        <button
+          style={{
+            ...addKnowledgeStyles.uploadBtn,
+            background: theme.bgInput,
+            border: `1px dashed ${theme.border}`,
+            color: theme.textSecondary,
+          }}
+          onClick={onUploadFile}
+        >
+          <FileText size={18} color={theme.accent} />
+          <span>Upload a file from your computer</span>
+        </button>
+
+        {/* Divider */}
+        <div style={addKnowledgeStyles.divider}>
+          <div style={{ ...addKnowledgeStyles.dividerLine, background: theme.border }} />
+          <span style={{ ...addKnowledgeStyles.dividerText, color: theme.textMuted }}>
+            or write manually
+          </span>
+          <div style={{ ...addKnowledgeStyles.dividerLine, background: theme.border }} />
+        </div>
+
+        {/* Manual Text */}
+        <div style={addKnowledgeStyles.fields}>
+          <div style={addKnowledgeStyles.field}>
+            <label style={{ ...addKnowledgeStyles.label, color: theme.textSecondary }}>
+              File Name
+            </label>
+            <input
+              style={{
+                ...modalStyles.input,
+                background: theme.bgInput,
+                border: `1px solid ${theme.border}`,
+                color: theme.textPrimary,
+              }}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. project-notes.md"
+            />
+          </div>
+
+          <div style={addKnowledgeStyles.field}>
+            <label style={{ ...addKnowledgeStyles.label, color: theme.textSecondary }}>
+              Content
+            </label>
+            <textarea
+              style={{
+                ...addKnowledgeStyles.textarea,
+                background: theme.bgInput,
+                border: `1px solid ${theme.border}`,
+                color: theme.textPrimary,
+              }}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Write your notes, documentation or any text here..."
+            />
+          </div>
+        </div>
+
+        <div style={modalStyles.buttons}>
+          <button
+            style={{
+              ...modalStyles.cancelBtn,
+              background: theme.bgHover,
+              color: theme.textSecondary,
+              border: `1px solid ${theme.border}`,
+            }}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            style={{
+              ...modalStyles.saveBtn,
+              background: name.trim() && content.trim() ? theme.accent : theme.bgHover,
+              color: name.trim() && content.trim() ? "#fff" : theme.textMuted,
+              cursor: name.trim() && content.trim() ? "pointer" : "not-allowed",
+            }}
+            onClick={handleSave}
+            disabled={!name.trim() || !content.trim()}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProjectDashboard({
   project,
   chats,
@@ -157,6 +280,9 @@ export default function ProjectDashboard({
   const [memory, setMemory] = useState("");
   const [fileTree, setFileTree] = useState("");
   const [renameModal, setRenameModal] = useState(null);
+  const [showAddKnowledge, setShowAddKnowledge] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
+  const [newFileContent, setNewFileContent] = useState("");
 
   useEffect(() => {
     if (project) {
@@ -182,35 +308,43 @@ export default function ProjectDashboard({
     setIsEditingInstructions(false);
   }
 
+  
+
   async function loadKnowledgeFiles() {
     const result = await window.electronAPI.getKnowledgeFiles(project.id);
     if (result.success) setKnowledgeFiles(result.files);
   }
 
-  async function handleAddKnowledgeFile() {
-    const fileInput = document.createElement("input");
-    fileInput.type = "file";
-    fileInput.accept = ".js,.jsx,.ts,.tsx,.css,.html,.json,.md,.txt";
-    fileInput.multiple = true;
+  async function handleUploadFile() {
+  setShowAddKnowledge(false);
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = ".js,.jsx,.ts,.tsx,.css,.html,.json,.md,.txt";
+  fileInput.multiple = true;
 
-    fileInput.onchange = async (e) => {
-      const files = Array.from(e.target.files);
-      for (const file of files) {
-        const content = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
-          reader.readAsText(file);
-        });
-        await window.electronAPI.saveKnowledgeFile(project.id, {
-          name: file.name,
-          content,
-        });
-      }
-      loadKnowledgeFiles();
-    };
+  fileInput.onchange = async (e) => {
+    const files = Array.from(e.target.files);
+    for (const file of files) {
+      const content = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.readAsText(file);
+      });
+      await window.electronAPI.saveKnowledgeFile(project.id, {
+        name: file.name,
+        content,
+      });
+    }
+    loadKnowledgeFiles();
+  };
 
-    fileInput.click();
-  }
+  fileInput.click();
+}
+
+  async function handleSaveManualFile(file) {
+  await window.electronAPI.saveKnowledgeFile(project.id, file);
+  loadKnowledgeFiles();
+}
 
   async function deleteKnowledgeFile(fileName) {
     await window.electronAPI.deleteKnowledgeFile(project.id, fileName);
@@ -475,20 +609,30 @@ export default function ProjectDashboard({
             {/* Knowledge Files */}
             {activeTab === "knowledge" && (
               <div style={styles.section}>
+                {/* Modal */}
+              {showAddKnowledge && (
+              <AddKnowledgeModal
+              theme={theme}
+              onClose={() => setShowAddKnowledge(false)}
+              onSaveFile={handleSaveManualFile}
+              onUploadFile={handleUploadFile}
+              />
+             )}
+
                 <div style={styles.sectionHeader}>
                   <span style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
                     Knowledge Files
                   </span>
                   <button
-                    style={{
-                      ...styles.addBtn,
-                      background: theme.accent,
-                      color: "#fff",
-                    }}
-                    onClick={handleAddKnowledgeFile}
+                   style={{
+                   ...styles.addBtn,
+                  background: theme.accent,
+                  color: "#fff",
+                  }}
+                  onClick={() => setShowAddKnowledge(true)}
                   >
-                    <Plus size={14} />
-                    Add File
+                  <Plus size={14} />
+                   Add Knowledge
                   </button>
                 </div>
 
@@ -951,5 +1095,60 @@ const modalStyles = {
     fontSize: "13px",
     fontWeight: "600",
     cursor: "pointer",
+  },
+};
+const addKnowledgeStyles = {
+  uploadBtn: {
+    width: "100%",
+    padding: "16px",
+    borderRadius: "10px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    fontSize: "13px",
+    fontWeight: "500",
+    textAlign: "left",
+    boxSizing: "border-box",
+  },
+  divider: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    margin: "4px 0",
+  },
+  dividerLine: {
+    flex: 1,
+    height: "1px",
+  },
+  dividerText: {
+    fontSize: "12px",
+    whiteSpace: "nowrap",
+  },
+  fields: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  field: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+  },
+  label: {
+    fontSize: "12px",
+    fontWeight: "600",
+  },
+  textarea: {
+    width: "100%",
+    height: "140px",
+    padding: "10px 12px",
+    borderRadius: "8px",
+    fontSize: "13px",
+    fontFamily: "inherit",
+    resize: "vertical",
+    outline: "none",
+    lineHeight: "1.6",
+    boxSizing: "border-box",
   },
 };

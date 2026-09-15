@@ -3,6 +3,7 @@ import { Bot, Moon, Sun } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
 import Settings from "./pages/Settings";
+import ProjectDashboard from "./pages/ProjectDashboard";
 import { useProjects } from "./hooks/useProjects";
 import { useChats } from "./hooks/useChats";
 import { useTheme } from "./ThemeContext";
@@ -25,18 +26,14 @@ export default function App() {
     newChat,
     deleteChat,
     updateChat,
+    renameChat,
   } = useChats(activeProject);
 
   const [isThinking, setIsThinking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
   const [toolStatuses, setToolStatuses] = useState([]);
   const abortRef = useRef(false);
-
-  // stop function
-function handleStopMessage() {
-  abortRef.current = true;
-  setIsThinking(false);
-}
 
   useEffect(() => {
     window.electronAPI.onToolStatus((data) => {
@@ -60,16 +57,54 @@ function handleStopMessage() {
     };
   }, []);
 
+  // project switch پر dashboard کھولیں
+  async function handleSwitchProject(project) {
+    await switchProject(project);
+    setShowDashboard(true);
+    setShowSettings(false);
+  }
+
+  // chat select کریں — dashboard بند کریں
+  function handleSelectChat(chat) {
+    setActiveChat(chat);
+    setShowDashboard(false);
+  }
+
+  // new chat
+  async function handleNewChat(projectId) {
+    await newChat(projectId);
+    setShowDashboard(false);
+  }
+
+  function handleStopMessage() {
+    abortRef.current = true;
+    setIsThinking(false);
+  }
+
   async function handleSendMessage(fullMessage, displayMessage) {
-    abortRef.current = false;
     if (!activeChat || !activeProject) return;
 
+    abortRef.current = false;
     setToolStatuses([]);
 
     const instrResult = await window.electronAPI.getInstructions(
       activeProject.id
     );
     const instructions = instrResult.success ? instrResult.instructions : "";
+
+    // knowledge files بھی شامل کریں
+    const knowledgeResult = await window.electronAPI.getKnowledgeFiles(
+      activeProject.id
+    );
+    let knowledgeContext = "";
+    if (knowledgeResult.success && knowledgeResult.files.length > 0) {
+      knowledgeContext = "\n\nKNOWLEDGE FILES:\n" +
+        knowledgeResult.files
+          .map((f) => `--- ${f.name} ---\n${f.content}`)
+          .join("\n\n");
+    }
+
+    const fullMessageWithKnowledge = fullMessage + knowledgeContext;
 
     const updatedChat = {
       ...activeChat,
@@ -88,10 +123,12 @@ function handleStopMessage() {
     setIsThinking(true);
 
     const result = await window.electronAPI.sendMessage(
-      fullMessage,
+      fullMessageWithKnowledge,
       activeProject.path,
       instructions
     );
+
+    if (abortRef.current) return;
 
     const agentMessage = {
       role: result.success ? "agent" : "system",
@@ -106,6 +143,43 @@ function handleStopMessage() {
 
     await updateChat(activeProject.id, finalChat);
     setIsThinking(false);
+  }
+
+  // main area کیا دکھائیں
+  function renderMainArea() {
+    if (showSettings) {
+      return (
+        <Settings
+          onClose={() => setShowSettings(false)}
+          onThemeChange={toggleTheme}
+          currentTheme={mode}
+        />
+      );
+    }
+
+    if (showDashboard && activeProject) {
+      return (
+        <ProjectDashboard
+          project={activeProject}
+          chats={chats}
+          onSelectChat={handleSelectChat}
+          onNewChat={handleNewChat}
+          onDeleteChat={deleteChat}
+          onRenameChat={renameChat}
+        />
+      );
+    }
+
+    return (
+      <ChatArea
+        activeProject={activeProject}
+        activeChat={activeChat}
+        isThinking={isThinking}
+        onSendMessage={handleSendMessage}
+        onStopMessage={handleStopMessage}
+        toolStatuses={toolStatuses}
+      />
+    );
   }
 
   return (
@@ -127,7 +201,7 @@ function handleStopMessage() {
         </div>
 
         <div style={styles.headerRight}>
-          {activeProject && !showSettings && (
+          {activeProject && !showSettings && !showDashboard && (
             <span
               style={{
                 ...styles.headerStatus,
@@ -139,7 +213,6 @@ function handleStopMessage() {
             </span>
           )}
 
-          {/* Theme Toggle */}
           <button
             style={{
               ...styles.themeToggle,
@@ -162,30 +235,18 @@ function handleStopMessage() {
           activeChat={activeChat}
           onAddProject={addProject}
           onRemoveProject={removeProject}
-          onSwitchProject={switchProject}
-          onNewChat={newChat}
-          onSelectChat={setActiveChat}
+          onSwitchProject={handleSwitchProject}
+          onNewChat={handleNewChat}
+          onSelectChat={handleSelectChat}
           onDeleteChat={deleteChat}
-          onOpenSettings={() => setShowSettings(true)}
+          onOpenSettings={() => {
+            setShowSettings(true);
+            setShowDashboard(false);
+          }}
           showSettings={showSettings}
         />
 
-        {showSettings ? (
-          <Settings
-            onClose={() => setShowSettings(false)}
-            onThemeChange={toggleTheme}
-            currentTheme={mode}
-          />
-        ) : (
-          <ChatArea
-            activeProject={activeProject}
-            activeChat={activeChat}
-            isThinking={isThinking}
-            onSendMessage={handleSendMessage}
-            onStopMessage={handleStopMessage}
-            toolStatuses={toolStatuses}
-          />
-        )}
+        {renderMainArea()}
       </div>
     </div>
   );

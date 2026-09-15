@@ -81,6 +81,18 @@ export function useChats(activeProject) {
     await window.electronAPI.saveChat(projectId, updatedChat);
   }
 
+  async function renameChat(projectId, chatId, newTitle) {
+  await window.electronAPI.renameChat(projectId, chatId, newTitle);
+  setChats((prev) =>
+    prev.map((c) =>
+      c.id === chatId ? { ...c, title: newTitle } : c
+    )
+  );
+  if (activeChat?.id === chatId) {
+    setActiveChat((prev) => ({ ...prev, title: newTitle }));
+  }
+}
+
   return {
     chats,
     activeChat,
@@ -88,5 +100,6 @@ export function useChats(activeProject) {
     newChat,
     deleteChat,
     updateChat,
+    renameChat,
   };
 }
