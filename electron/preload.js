@@ -64,4 +64,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Rename Chat
   renameChat: (projectId, chatId, newTitle) =>
   ipcRenderer.invoke("rename-chat", { projectId, chatId, newTitle }),
+
+  // Stream listeners
+  onChatStream: (callback) =>
+    ipcRenderer.on("chat-stream", (event, data) => callback(data)),
+  removeChatStreamListener: () =>
+    ipcRenderer.removeAllListeners("chat-stream"),
 });

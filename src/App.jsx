@@ -29,6 +29,7 @@ export default function App() {
     renameChat,
   } = useChats(activeProject);
 
+  const [streamingContent, setStreamingContent] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
@@ -52,8 +53,20 @@ export default function App() {
       });
     });
 
+    // streaming listener
+    window.electronAPI.onChatStream((data) => {
+      if (data.type === "chunk") {
+        setStreamingContent((prev) => prev + data.chunk);
+      } else if (data.type === "done") {
+        setStreamingContent("");
+      } else if (data.type === "tool") {
+        setStreamingContent("");
+      }
+    });
+
     return () => {
       window.electronAPI.removeToolStatusListener();
+      window.electronAPI.removeChatStreamListener();
     };
   }, []);
 
@@ -86,19 +99,20 @@ export default function App() {
 
     abortRef.current = false;
     setToolStatuses([]);
+    setStreamingContent("");
 
     const instrResult = await window.electronAPI.getInstructions(
       activeProject.id
     );
     const instructions = instrResult.success ? instrResult.instructions : "";
 
-    // knowledge files بھی شامل کریں
     const knowledgeResult = await window.electronAPI.getKnowledgeFiles(
       activeProject.id
     );
     let knowledgeContext = "";
     if (knowledgeResult.success && knowledgeResult.files.length > 0) {
-      knowledgeContext = "\n\nKNOWLEDGE FILES:\n" +
+      knowledgeContext =
+        "\n\nKNOWLEDGE FILES:\n" +
         knowledgeResult.files
           .map((f) => `--- ${f.name} ---\n${f.content}`)
           .join("\n\n");
@@ -128,7 +142,11 @@ export default function App() {
       instructions
     );
 
-    if (abortRef.current) return;
+    if (abortRef.current) {
+      setIsThinking(false);
+      setStreamingContent("");
+      return;
+    }
 
     const agentMessage = {
       role: result.success ? "agent" : "system",
@@ -143,6 +161,7 @@ export default function App() {
 
     await updateChat(activeProject.id, finalChat);
     setIsThinking(false);
+    setStreamingContent("");
   }
 
   // main area کیا دکھائیں
@@ -178,6 +197,7 @@ export default function App() {
         onSendMessage={handleSendMessage}
         onStopMessage={handleStopMessage}
         toolStatuses={toolStatuses}
+        streamingContent={streamingContent}
       />
     );
   }

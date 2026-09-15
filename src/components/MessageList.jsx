@@ -198,13 +198,13 @@ function AgentMessage({ content, theme, mode }) {
   );
 }
 
-export default function MessageList({ messages, isThinking, toolStatuses }) {
+export default function MessageList({ messages, isThinking, toolStatuses, streamingContent }) {
   const { theme, mode } = useTheme();
   const endRef = useRef(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isThinking, toolStatuses]);
+  }, [messages, isThinking, toolStatuses, streamingContent]);
 
   return (
     <div style={{ ...styles.container, background: theme.bgMain }}>
@@ -262,42 +262,50 @@ export default function MessageList({ messages, isThinking, toolStatuses }) {
 
       {/* Thinking */}
       {isThinking && (
-        <div style={styles.agentWrapper}>
-          <div
-            style={{
-              ...styles.agentAvatar,
-              background: theme.bgHover,
-              color: theme.textSecondary,
-            }}
-          >
-            <Bot size={15} />
-          </div>
-          <div style={styles.agentContent}>
-            <span style={{ ...styles.agentName, color: theme.textMuted }}>
-              Coder
-            </span>
-            {toolStatuses && toolStatuses.length > 0 ? (
-              <div style={toolStyles.container}>
-                {toolStatuses.map((ts, i) => (
-                  <ToolStatusItem
-                    key={i}
-                    tool={ts.tool}
-                    status={ts.status}
-                    input={ts.input}
-                    theme={theme}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div style={styles.thinkingDots}>
-                <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "0ms" }} />
-                <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "150ms" }} />
-                <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "300ms" }} />
-              </div>
-            )}
-          </div>
+  <div style={styles.agentWrapper}>
+    <div
+      style={{
+        ...styles.agentAvatar,
+        background: theme.bgHover,
+        color: theme.textSecondary,
+      }}
+    >
+      <Bot size={15} />
+    </div>
+    <div style={styles.agentContent}>
+      <span style={{ ...styles.agentName, color: theme.textMuted }}>
+        Coder
+      </span>
+
+      {/* Streaming content */}
+      {streamingContent ? (
+        <AgentMessage
+          content={streamingContent}
+          theme={theme}
+          mode={mode}
+        />
+      ) : toolStatuses && toolStatuses.length > 0 ? (
+        <div style={toolStyles.container}>
+          {toolStatuses.map((ts, i) => (
+            <ToolStatusItem
+              key={i}
+              tool={ts.tool}
+              status={ts.status}
+              input={ts.input}
+              theme={theme}
+            />
+          ))}
+        </div>
+      ) : (
+        <div style={styles.thinkingDots}>
+          <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "0ms" }} />
+          <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "150ms" }} />
+          <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "300ms" }} />
         </div>
       )}
+    </div>
+  </div>
+)}
 
       <div ref={endRef} />
 

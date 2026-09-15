@@ -11,6 +11,7 @@ export default function ChatArea({
   onSendMessage,
   onStopMessage,
   toolStatuses,
+  streamingContent,
 }) {
   const { theme } = useTheme();
   const [showSettings, setShowSettings] = useState(false);
@@ -147,6 +148,7 @@ export default function ChatArea({
         messages={activeChat.messages}
         isThinking={isThinking}
         toolStatuses={toolStatuses}
+        streamingContent={streamingContent}
       />
 
       {/* Input */}

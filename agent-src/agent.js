@@ -89,7 +89,7 @@ PROJECT CONTEXT:
 ${context}`;
   }
 
-  async chat(userMessage) {
+  async chat(userMessage, onChunk = null) {
     this.conversationHistory.push({
       role: "user",
       content: userMessage,
@@ -102,16 +102,35 @@ ${context}`;
     ];
 
     while (true) {
-      const response = await this.modelClient.sendMessageWithTools(
-        messages,
-        tools
-      );
+      let response;
+
+      if (onChunk) {
+        // streaming mode
+        response = await this.modelClient.sendMessageWithToolsStream(
+          messages,
+          tools,
+          onChunk
+        );
+      } else {
+        // normal mode
+        response = await this.modelClient.sendMessageWithTools(
+          messages,
+          tools
+        );
+      }
 
       if (
         response.finish_reason === "tool_calls" &&
         response.message.tool_calls
       ) {
-        messages.push(response.message);
+        // streaming میں chunk بھیجنا بند کریں tools کے دوران
+        if (onChunk) onChunk(null);
+
+        messages.push({
+          role: "assistant",
+          content: response.message.content,
+          tool_calls: response.message.tool_calls,
+        });
 
         for (const toolCall of response.message.tool_calls) {
           const toolName = toolCall.function.name;

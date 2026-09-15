@@ -133,10 +133,8 @@ ipcMain.handle("chat-message", async (event, { message, projectPath, instruction
       agent.systemPrompt += `\n\nCUSTOM PROJECT INSTRUCTIONS:\n${instructions}`;
     }
 
-    // tool use کا status UI کو بھیجیں
     const originalExecuteTool = agent.toolHandler.executeTool.bind(agent.toolHandler);
     agent.toolHandler.executeTool = async (toolName, toolInput) => {
-      // tool start کا event بھیجیں
       event.sender.send("tool-status", {
         status: "running",
         tool: toolName,
@@ -145,7 +143,6 @@ ipcMain.handle("chat-message", async (event, { message, projectPath, instruction
 
       const result = await originalExecuteTool(toolName, toolInput);
 
-      // tool complete کا event بھیجیں
       event.sender.send("tool-status", {
         status: "done",
         tool: toolName,
@@ -156,14 +153,29 @@ ipcMain.handle("chat-message", async (event, { message, projectPath, instruction
     };
 
     let response;
+
     if (message.startsWith("/")) {
       response = await agent.handleCommand(message);
+      return { success: true, response };
     } else {
-      response = await agent.chat(message);
-    }
+      // streaming mode
+      let fullResponse = "";
 
-    return { success: true, response };
+      await agent.chat(message, (chunk) => {
+        if (chunk === null) {
+          // tool call شروع ہو رہی ہے
+          event.sender.send("chat-stream", { type: "tool" });
+        } else {
+          fullResponse += chunk;
+          event.sender.send("chat-stream", { type: "chunk", chunk });
+        }
+      });
+
+      event.sender.send("chat-stream", { type: "done" });
+      return { success: true, response: fullResponse };
+    }
   } catch (error) {
+    event.sender.send("chat-stream", { type: "error", error: error.message });
     return { success: false, error: error.message };
   }
 });
