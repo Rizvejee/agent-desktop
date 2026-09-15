@@ -239,6 +239,7 @@ export default function App() {
           onNewChat={handleNewChat}
           onSelectChat={handleSelectChat}
           onDeleteChat={deleteChat}
+          onRenameChat={renameChat}
           onOpenSettings={() => {
             setShowSettings(true);
             setShowDashboard(false);

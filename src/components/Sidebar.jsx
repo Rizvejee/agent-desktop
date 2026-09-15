@@ -8,8 +8,129 @@ import {
   ChevronUp,
   Settings,
   User,
+  MoreHorizontal,
+  Edit2,
 } from "lucide-react";
 import { useTheme } from "../ThemeContext";
+
+// Three dot menu
+function ThreeDotMenu({ items, theme }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        style={{
+          ...menuStyles.trigger,
+          color: theme.textMuted,
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+        }}
+      >
+        <MoreHorizontal size={14} />
+      </button>
+
+      {open && (
+        <>
+          <div
+            style={menuStyles.overlay}
+            onClick={() => setOpen(false)}
+          />
+          <div
+            style={{
+              ...menuStyles.menu,
+              background: theme.bgCard,
+              border: `1px solid ${theme.border}`,
+              boxShadow: theme.shadowMd,
+            }}
+          >
+            {items.map((item, i) => (
+              <button
+                key={i}
+                style={{
+                  ...menuStyles.item,
+                  color: item.danger ? "#ef4444" : theme.textSecondary,
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  item.onClick();
+                }}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Rename modal
+function RenameModal({ title, value, onSave, onClose, theme }) {
+  const [text, setText] = useState(value);
+
+  return (
+    <div style={modalStyles.overlay}>
+      <div
+        style={{
+          ...modalStyles.modal,
+          background: theme.bgCard,
+          border: `1px solid ${theme.border}`,
+          boxShadow: theme.shadowMd,
+        }}
+      >
+        <div style={modalStyles.header}>
+          <span style={{ ...modalStyles.title, color: theme.textPrimary }}>
+            {title}
+          </span>
+        </div>
+        <input
+          style={{
+            ...modalStyles.input,
+            background: theme.bgInput,
+            border: `1px solid ${theme.border}`,
+            color: theme.textPrimary,
+          }}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onSave(text);
+            if (e.key === "Escape") onClose();
+          }}
+        />
+        <div style={modalStyles.buttons}>
+          <button
+            style={{
+              ...modalStyles.cancelBtn,
+              background: theme.bgHover,
+              color: theme.textSecondary,
+              border: `1px solid ${theme.border}`,
+            }}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            style={{
+              ...modalStyles.saveBtn,
+              background: theme.accent,
+              color: "#fff",
+            }}
+            onClick={() => onSave(text)}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Sidebar({
   projects,
@@ -22,21 +143,13 @@ export default function Sidebar({
   onNewChat,
   onSelectChat,
   onDeleteChat,
+  onRenameChat,
   onOpenSettings,
   showSettings,
 }) {
   const { theme } = useTheme();
-  const [fileTree, setFileTree] = useState("");
   const [showChats, setShowChats] = useState(true);
-
-  useEffect(() => {
-    if (activeProject) loadFileTree();
-  }, [activeProject]);
-
-  async function loadFileTree() {
-    const result = await window.electronAPI.listFiles(activeProject.path, "");
-    if (result.success) setFileTree(result.result);
-  }
+  const [renameModal, setRenameModal] = useState(null);
 
   return (
     <div
@@ -46,6 +159,20 @@ export default function Sidebar({
         borderRight: `1px solid ${theme.border}`,
       }}
     >
+      {/* Rename Modal */}
+      {renameModal && (
+        <RenameModal
+          title={renameModal.title}
+          value={renameModal.value}
+          onSave={(newName) => {
+            renameModal.onSave(newName);
+            setRenameModal(null);
+          }}
+          onClose={() => setRenameModal(null)}
+          theme={theme}
+        />
+      )}
+
       {/* Projects */}
       <div
         style={{
@@ -92,15 +219,17 @@ export default function Sidebar({
                 }
               />
               <span style={styles.itemLabel}>{project.name}</span>
-              <button
-                style={{ ...styles.deleteBtn, color: theme.textMuted }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemoveProject(project.id);
-                }}
-              >
-                <Trash2 size={11} />
-              </button>
+              <ThreeDotMenu
+                theme={theme}
+                items={[
+                  {
+                    icon: <Trash2 size={12} />,
+                    label: "Remove",
+                    danger: true,
+                    onClick: () => onRemoveProject(project.id),
+                  },
+                ]}
+              />
             </div>
           ))}
 
@@ -184,38 +313,32 @@ export default function Sidebar({
                     }
                   />
                   <span style={styles.itemLabel}>{chat.title}</span>
-                  <button
-                    style={{ ...styles.deleteBtn, color: theme.textMuted }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteChat(activeProject.id, chat.id);
-                    }}
-                  >
-                    <Trash2 size={11} />
-                  </button>
+                  <ThreeDotMenu
+                    theme={theme}
+                    items={[
+                      {
+                        icon: <Edit2 size={12} />,
+                        label: "Rename",
+                        onClick: () =>
+                          setRenameModal({
+                            title: "Rename Chat",
+                            value: chat.title,
+                            onSave: (name) =>
+                              onRenameChat(activeProject.id, chat.id, name),
+                          }),
+                      },
+                      {
+                        icon: <Trash2 size={12} />,
+                        label: "Delete",
+                        danger: true,
+                        onClick: () => onDeleteChat(activeProject.id, chat.id),
+                      },
+                    ]}
+                  />
                 </div>
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* File Tree */}
-      {activeProject && fileTree && (
-        <div
-          style={{
-            ...styles.fileTreeSection,
-            borderBottom: `1px solid ${theme.border}`,
-          }}
-        >
-          <div style={styles.sectionHeader}>
-            <span style={{ ...styles.sectionTitle, color: theme.textMuted }}>
-              Files
-            </span>
-          </div>
-          <pre style={{ ...styles.fileTree, color: theme.textMuted }}>
-            {fileTree}
-          </pre>
         </div>
       )}
 
@@ -254,7 +377,7 @@ const styles = {
     flexShrink: 0,
   },
   section: {
-    padding: "12px 12px",
+    padding: "12px",
   },
   sectionHeader: {
     display: "flex",
@@ -292,23 +415,12 @@ const styles = {
     cursor: "pointer",
     fontSize: "13px",
     fontWeight: "500",
-    transition: "background 0.15s",
   },
   itemLabel: {
     flex: 1,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-  },
-  deleteBtn: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    padding: "2px",
-    borderRadius: "4px",
-    opacity: 1,
   },
   emptyBtn: {
     display: "flex",
@@ -327,18 +439,6 @@ const styles = {
     gap: "2px",
     overflowY: "auto",
     flex: 1,
-  },
-  fileTreeSection: {
-    padding: "12px",
-    overflow: "auto",
-    maxHeight: "180px",
-  },
-  fileTree: {
-    fontSize: "11px",
-    lineHeight: "1.8",
-    whiteSpace: "pre-wrap",
-    fontFamily: "Monaco, Menlo, monospace",
-    margin: 0,
   },
   bottomBar: {
     padding: "10px 12px",
@@ -371,5 +471,99 @@ const styles = {
   settingsBarLabel: {
     flex: 1,
     textAlign: "left",
+  },
+};
+
+const menuStyles = {
+  trigger: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: "3px",
+    borderRadius: "4px",
+    display: "flex",
+    alignItems: "center",
+  },
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 99,
+  },
+  menu: {
+    position: "absolute",
+    right: 0,
+    top: "100%",
+    borderRadius: "8px",
+    padding: "4px",
+    minWidth: "130px",
+    zIndex: 100,
+  },
+  item: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "7px 10px",
+    background: "none",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "12px",
+    width: "100%",
+    textAlign: "left",
+  },
+};
+
+const modalStyles = {
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.4)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 200,
+  },
+  modal: {
+    borderRadius: "12px",
+    padding: "20px",
+    width: "320px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  header: {
+    display: "flex",
+    alignItems: "center",
+  },
+  title: {
+    fontSize: "15px",
+    fontWeight: "600",
+  },
+  input: {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: "8px",
+    fontSize: "14px",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  buttons: {
+    display: "flex",
+    gap: "8px",
+    justifyContent: "flex-end",
+  },
+  cancelBtn: {
+    padding: "7px 16px",
+    borderRadius: "8px",
+    fontSize: "13px",
+    cursor: "pointer",
+  },
+  saveBtn: {
+    padding: "7px 16px",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "13px",
+    fontWeight: "600",
+    cursor: "pointer",
   },
 };
