@@ -73,4 +73,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Terminal
   runTerminalCommand: (command, projectPath) =>
     ipcRenderer.invoke("run-terminal-command", { command, projectPath }),
+
+  // File Explorer
+  listFilesTree: (projectPath) =>
+  ipcRenderer.invoke("list-files-tree", { projectPath }),
+  readFileContent: (projectPath, filePath) =>
+  ipcRenderer.invoke("read-file-content", { projectPath, filePath }),
 });

@@ -504,3 +504,72 @@ ipcMain.handle("run-terminal-command", async (event, { command, projectPath }) =
     );
   });
 });
+
+// ─── IPC: File Tree (VS Code style) ─────────────────────
+ipcMain.handle("list-files-tree", async (event, { projectPath }) => {
+  try {
+    const ignored = [
+      "node_modules", ".git", ".next", "dist", "build",
+      ".expo", ".cache", ".vite", "coverage",
+    ];
+
+    const buildTree = (dirPath, relativePath = "") => {
+      const items = fs.readdirSync(dirPath, { withFileTypes: true });
+      const result = [];
+
+      for (const item of items) {
+        // hidden files اور ignored folders skip کریں
+        if (item.name.startsWith(".")) continue;
+        if (item.isDirectory() && ignored.includes(item.name)) continue;
+
+        const itemRelative = relativePath
+          ? `${relativePath}/${item.name}`
+          : item.name;
+
+        if (item.isDirectory()) {
+          result.push({
+            name: item.name,
+            type: "folder",
+            path: itemRelative,
+            children: buildTree(path.join(dirPath, item.name), itemRelative),
+          });
+        } else {
+          result.push({
+            name: item.name,
+            type: "file",
+            path: itemRelative,
+          });
+        }
+      }
+
+      // folders پہلے، پھر files — دونوں alphabetical
+      result.sort((a, b) => {
+        if (a.type === b.type) return a.name.localeCompare(b.name);
+        return a.type === "folder" ? -1 : 1;
+      });
+
+      return result;
+    };
+
+    const tree = buildTree(projectPath);
+    return { success: true, tree };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ─── IPC: Read File Content ─────────────────────────────
+ipcMain.handle("read-file-content", async (event, { projectPath, filePath }) => {
+  try {
+    const fullPath = path.join(projectPath, filePath);
+    // security: project کے باہر نہ جائے
+    const resolved = path.resolve(fullPath);
+    if (!resolved.startsWith(path.resolve(projectPath))) {
+      return { success: false, error: "Access denied" };
+    }
+    const content = fs.readFileSync(fullPath, "utf-8");
+    return { success: true, content };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});

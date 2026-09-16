@@ -11,6 +11,7 @@ import {
   MoreHorizontal,
   Edit2,
   Terminal as TerminalIcon,
+  FolderTree,
 } from "lucide-react";
 import { useTheme } from "../ThemeContext";
 
@@ -149,6 +150,8 @@ export default function Sidebar({
   showSettings,
   onOpenTerminal,
   showTerminal,
+  onOpenFiles,    // ← نیا
+  showFiles,
 }) {
   const { theme } = useTheme();
   const [showChats, setShowChats] = useState(true);
@@ -344,6 +347,39 @@ export default function Sidebar({
           )}
         </div>
       )}
+
+      {/* Files Button */}
+<div
+  style={{
+    padding: "6px 12px",
+    borderTop: `1px solid ${theme.border}`,
+  }}
+>
+  <button
+    style={{
+      ...styles.settingsBarBtn,
+      background: showFiles ? theme.bgActive : "transparent",
+      color: showFiles ? theme.accent : theme.textSecondary,
+    }}
+    onClick={onOpenFiles}
+  >
+    <div
+      style={{
+        width: "26px",
+        height: "26px",
+        borderRadius: "6px",
+        background: showFiles ? theme.accentLight : theme.bgHover,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      <FolderTree size={13} color={showFiles ? theme.accent : theme.textMuted} />
+    </div>
+    <span style={styles.settingsBarLabel}>Files</span>
+  </button>
+</div>
 
 
       {/* Terminal Button */}

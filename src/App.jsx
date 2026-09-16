@@ -8,6 +8,7 @@ import { useProjects } from "./hooks/useProjects";
 import { useChats } from "./hooks/useChats";
 import { useTheme } from "./ThemeContext";
 import Terminal from "./components/Terminal";
+import FileExplorer from "./components/FileExplorer";
 
 export default function App() {
   const { theme, mode, toggleTheme } = useTheme();
@@ -36,6 +37,7 @@ export default function App() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [toolStatuses, setToolStatuses] = useState([]);
   const [showTerminal, setShowTerminal] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
   const abortRef = useRef(false);
 
   useEffect(() => {
@@ -185,6 +187,14 @@ export default function App() {
         />
       );
     }
+    if (showFiles) {
+    return (
+    <FileExplorer
+      activeProject={activeProject}
+      onClose={() => setShowFiles(false)}
+     />
+     );
+     }
 
     if (showDashboard && activeProject) {
       return (
@@ -274,15 +284,25 @@ export default function App() {
           onOpenSettings={() => {
             setShowSettings(true);
             setShowDashboard(false);
+            setShowFiles(false);   // ← نیا
           }}
           showSettings={showSettings}
           onOpenTerminal={() => {
             setShowTerminal(true);
             setShowSettings(false);
             setShowDashboard(false);
+            setShowFiles(false);   // ← نیا
           }}
           showTerminal={showTerminal}
-        />
+          onOpenFiles={() => {     // ← نیا
+          setShowFiles(true);
+          setShowSettings(false);
+          setShowDashboard(false);
+          setShowTerminal(false);
+          }}
+          showFiles={showFiles}    // ← نیا
+          />
+        
 
         {renderMainArea()}
       </div>
