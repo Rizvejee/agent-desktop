@@ -456,3 +456,51 @@ ipcMain.handle("rename-chat", async (event, { projectId, chatId, newTitle }) => 
     return { success: false, error: error.message };
   }
 });
+
+// ─── IPC: Terminal ───────────────────────────────────────
+ipcMain.handle("run-terminal-command", async (event, { command, projectPath }) => {
+  return new Promise((resolve) => {
+    const { exec } = require("child_process");
+
+    const allowedCommands = [
+      "npm", "npx", "node", "ls", "pwd", "cat",
+      "mkdir", "touch", "git", "yarn", "pnpm",
+      "expo", "react-native", "next",
+    ];
+
+    const commandName = command.trim().split(" ")[0];
+    const isAllowed = allowedCommands.some(
+      (allowed) => commandName === allowed
+    );
+
+    if (!isAllowed) {
+      resolve({
+        success: false,
+        output: `Command not allowed: "${commandName}"\nAllowed: ${allowedCommands.join(", ")}`,
+      });
+      return;
+    }
+
+    exec(
+      command,
+      {
+        cwd: projectPath || require("os").homedir(),
+        timeout: 60000,
+        maxBuffer: 1024 * 1024 * 5,
+      },
+      (error, stdout, stderr) => {
+        if (error && !stdout) {
+          resolve({
+            success: false,
+            output: stderr || error.message,
+          });
+          return;
+        }
+        resolve({
+          success: true,
+          output: stdout + (stderr ? `\n${stderr}` : ""),
+        });
+      }
+    );
+  });
+});

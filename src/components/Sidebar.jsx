@@ -10,6 +10,7 @@ import {
   User,
   MoreHorizontal,
   Edit2,
+  Terminal as TerminalIcon,
 } from "lucide-react";
 import { useTheme } from "../ThemeContext";
 
@@ -146,6 +147,8 @@ export default function Sidebar({
   onRenameChat,
   onOpenSettings,
   showSettings,
+  onOpenTerminal,
+  showTerminal,
 }) {
   const { theme } = useTheme();
   const [showChats, setShowChats] = useState(true);
@@ -341,6 +344,40 @@ export default function Sidebar({
           )}
         </div>
       )}
+
+
+      {/* Terminal Button */}
+      <div
+      style={{
+      padding: "6px 12px",
+      borderTop: `1px solid ${theme.border}`,
+      }}
+      >
+    <button
+    style={{
+      ...styles.settingsBarBtn,
+      background: showTerminal ? theme.bgActive : "transparent",
+      color: showTerminal ? theme.accent : theme.textSecondary,
+    }}
+    onClick={onOpenTerminal}
+    >
+    <div
+      style={{
+        width: "26px",
+        height: "26px",
+        borderRadius: "6px",
+        background: showTerminal ? theme.accentLight : theme.bgHover,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      <TerminalIcon size={13} color={showTerminal ? theme.accent : theme.textMuted} />
+    </div>
+    <span style={styles.settingsBarLabel}>Terminal</span>
+    </button>
+    </div>
 
       {/* Bottom Settings */}
       <div

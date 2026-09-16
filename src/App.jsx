@@ -7,6 +7,7 @@ import ProjectDashboard from "./pages/ProjectDashboard";
 import { useProjects } from "./hooks/useProjects";
 import { useChats } from "./hooks/useChats";
 import { useTheme } from "./ThemeContext";
+import Terminal from "./components/Terminal";
 
 export default function App() {
   const { theme, mode, toggleTheme } = useTheme();
@@ -34,6 +35,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
   const [toolStatuses, setToolStatuses] = useState([]);
+  const [showTerminal, setShowTerminal] = useState(false);
   const abortRef = useRef(false);
 
   useEffect(() => {
@@ -175,6 +177,14 @@ export default function App() {
         />
       );
     }
+    if (showTerminal) {
+      return (
+        <Terminal
+          activeProject={activeProject}
+          onClose={() => setShowTerminal(false)}
+        />
+      );
+    }
 
     if (showDashboard && activeProject) {
       return (
@@ -188,6 +198,7 @@ export default function App() {
         />
       );
     }
+
 
     return (
       <ChatArea
@@ -265,6 +276,12 @@ export default function App() {
             setShowDashboard(false);
           }}
           showSettings={showSettings}
+          onOpenTerminal={() => {
+            setShowTerminal(true);
+            setShowSettings(false);
+            setShowDashboard(false);
+          }}
+          showTerminal={showTerminal}
         />
 
         {renderMainArea()}
