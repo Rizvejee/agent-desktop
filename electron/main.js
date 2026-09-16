@@ -92,9 +92,39 @@ function getAgent(projectPath) {
     const Agent = require("../agent-src/agent");
     agentInstance = new Agent(projectPath);
 
-    // settings file سے agent settings لوڈ کریں
+    // settings سے provider اور model لوڈ کریں
     if (fs.existsSync(SETTINGS_FILE)) {
       const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf-8"));
+
+      // model client کو settings کے مطابق بنائیں
+      const ModelClient = require("../agent-src/modelClient");
+      const provider = settings.provider || "groq";
+
+      let config = {};
+      switch (provider) {
+        case "groq":
+          config = {
+            apiKey: settings.groqApiKey || process.env.GROQ_API_KEY,
+            model: settings.groqModel || "openai/gpt-oss-120b",
+          };
+          break;
+        case "gemini":
+          config = {
+            apiKey: settings.geminiApiKey || process.env.GEMINI_API_KEY,
+            model: settings.geminiModel || "gemini-2.0-flash",
+          };
+          break;
+        case "ollama":
+          config = {
+            baseURL: settings.ollamaUrl || "http://localhost:11434/v1",
+            model: settings.ollamaModel || "llama3.2",
+          };
+          break;
+      }
+
+      agentInstance.modelClient = new ModelClient(provider, config);
+
+      // agent settings بھی apply کریں
       if (settings.agentSettings) {
         agentInstance.systemPrompt = agentInstance.buildSystemPrompt(
           settings.agentSettings

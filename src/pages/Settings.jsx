@@ -21,16 +21,24 @@ const AGENT_MODES = [
   { id: "assisted", label: "Assisted", desc: "Ask before making important changes" },
   { id: "auto", label: "Auto", desc: "Work independently without confirmation" },
 ];
-
 const NAV_ITEMS = [
   { id: "agent-config", label: "Agent", icon: Bot },
   { id: "model", label: "AI Model", icon: Bot },
-  { id: "api", label: "API Keys", icon: Key },
   { id: "agentmode", label: "Agent Mode", icon: Sliders },
   { id: "appearance", label: "Appearance", icon: Sun },
 ];
 
+
 export default function Settings({ onClose, onThemeChange, currentTheme }) {
+  const [provider, setProvider] = useState("groq");
+  const [groqApiKey, setGroqApiKey] = useState("");
+  const [groqModel, setGroqModel] = useState("openai/gpt-oss-120b");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [geminiModel, setGeminiModel] = useState("gemini-2.0-flash");
+  const [ollamaUrl, setOllamaUrl] = useState("http://localhost:11434/v1");
+  const [ollamaModel, setOllamaModel] = useState("llama3.2");
+  const [showGroqKey, setShowGroqKey] = useState(false);
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
   const { theme } = useTheme();
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -62,10 +70,14 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
     const result = await window.electronAPI.getSettings();
     if (result.success) {
       const s = result.settings;
-      if (s.apiKey) setApiKey(s.apiKey);
-      if (s.model) setSelectedModel(s.model);
+      if (s.provider) setProvider(s.provider);
+      if (s.groqApiKey) setGroqApiKey(s.groqApiKey);
+      if (s.groqModel) setGroqModel(s.groqModel);
+      if (s.geminiApiKey) setGeminiApiKey(s.geminiApiKey);
+      if (s.geminiModel) setGeminiModel(s.geminiModel);
+      if (s.ollamaUrl) setOllamaUrl(s.ollamaUrl);
+      if (s.ollamaModel) setOllamaModel(s.ollamaModel);
       if (s.agentMode) setAgentMode(s.agentMode);
-      // agent settings
       if (s.agentSettings) {
         if (s.agentSettings.name) setAgentName(s.agentSettings.name);
         if (s.agentSettings.role) setAgentRole(s.agentSettings.role);
@@ -78,8 +90,13 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
 
   async function saveSettings() {
     await window.electronAPI.saveSettings({
-      apiKey,
-      model: selectedModel,
+      provider,
+      groqApiKey,
+      groqModel,
+      geminiApiKey,
+      geminiModel,
+      ollamaUrl,
+      ollamaModel,
       agentMode,
       theme: currentTheme,
       agentSettings: {
@@ -96,6 +113,30 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
       onClose();
     }, 1000);
   }
+
+  const providerStyles = {
+    box: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "14px",
+      padding: "16px",
+      borderRadius: "10px",
+      border: `1px solid ${theme.border}`,
+      marginTop: "4px",
+    },
+    title: {
+      fontSize: "12px",
+      fontWeight: "600",
+      textTransform: "uppercase",
+      letterSpacing: "0.5px",
+    },
+    notice: {
+      padding: "10px 14px",
+      borderRadius: "8px",
+      fontSize: "12px",
+      lineHeight: "1.6",
+    },
+  };
 
   return (
     <div
@@ -302,98 +343,299 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
 
           {/* AI Model */}
           {activeSection === "model" && (
-            <div style={styles.section}>
-              <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
-                AI Model
-              </h3>
-              <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
-                Choose which model powers your coding agent.
-              </p>
-              <div style={styles.cardList}>
-                {MODELS.map((model) => {
-                  const isSelected = selectedModel === model.id;
-                  return (
-                    <div
-                      key={model.id}
-                      style={{
-                        ...styles.card,
-                        background: theme.bgCard,
-                        border: isSelected
-                          ? `2px solid ${theme.accent}`
-                          : `1px solid ${theme.border}`,
-                        boxShadow: isSelected ? `0 0 0 3px ${theme.accent}18` : theme.shadow,
-                      }}
-                      onClick={() => setSelectedModel(model.id)}
-                    >
-                      <div style={styles.cardInfo}>
-                        <span style={{ ...styles.cardTitle, color: theme.textPrimary }}>
-                          {model.name}
-                        </span>
-                        <span style={{ ...styles.cardDesc, color: theme.textMuted }}>
-                          {model.desc}
-                        </span>
-                      </div>
-                      {isSelected && (
-                        <div
-                          style={{
-                            ...styles.checkCircle,
-                            background: theme.accent,
-                          }}
-                        >
-                          <Check size={12} color="#fff" />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+  <div style={styles.section}>
+    <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
+      AI Model
+    </h3>
+    <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
+      Choose your AI provider and configure its settings.
+    </p>
+
+    {/* Provider Selection */}
+    <div style={styles.cardList}>
+      {[
+        {
+          id: "groq",
+          name: "Groq",
+          desc: "Fast cloud AI — free tier available",
+          badge: "Recommended",
+        },
+        {
+          id: "gemini",
+          name: "Google Gemini",
+          desc: "Google's AI — free tier available",
+          badge: "Free",
+        },
+        {
+          id: "ollama",
+          name: "Ollama (Local)",
+          desc: "Run AI locally on your machine",
+          badge: "Private",
+        },
+      ].map((p) => {
+        const isSelected = provider === p.id;
+        return (
+          <div
+            key={p.id}
+            style={{
+              ...styles.card,
+              background: theme.bgCard,
+              border: isSelected
+                ? `2px solid ${theme.accent}`
+                : `1px solid ${theme.border}`,
+              boxShadow: isSelected
+                ? `0 0 0 3px ${theme.accent}18`
+                : theme.shadow,
+            }}
+            onClick={() => setProvider(p.id)}
+          >
+            <div style={styles.cardInfo}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ ...styles.cardTitle, color: theme.textPrimary }}>
+                  {p.name}
+                </span>
+                <span
+                  style={{
+                    fontSize: "10px",
+                    padding: "2px 8px",
+                    borderRadius: "20px",
+                    background: theme.accentLight,
+                    color: theme.accent,
+                    fontWeight: "600",
+                  }}
+                >
+                  {p.badge}
+                </span>
               </div>
+              <span style={{ ...styles.cardDesc, color: theme.textMuted }}>
+                {p.desc}
+              </span>
             </div>
-          )}
+            {isSelected && (
+              <div style={{ ...styles.checkCircle, background: theme.accent }}>
+                <Check size={12} color="#fff" />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+
+    {/* Groq Settings */}
+    {provider === "groq" && (
+      <div style={providerStyles.box}>
+        <div style={{ ...providerStyles.title, color: theme.textSecondary }}>
+          Groq Configuration
+        </div>
+
+        <div style={styles.field}>
+          <label style={{ ...styles.label, color: theme.textSecondary }}>
+            API Key
+          </label>
+          <div style={styles.inputRow}>
+            <input
+              style={{
+                ...styles.input,
+                background: theme.bgInput,
+                border: `1px solid ${theme.border}`,
+                color: theme.textPrimary,
+              }}
+              type={showGroqKey ? "text" : "password"}
+              value={groqApiKey}
+              onChange={(e) => setGroqApiKey(e.target.value)}
+              placeholder="gsk_..."
+            />
+            <button
+              style={{
+                ...styles.toggleBtn,
+                background: theme.bgHover,
+                border: `1px solid ${theme.border}`,
+                color: theme.textSecondary,
+              }}
+              onClick={() => setShowGroqKey(!showGroqKey)}
+            >
+              {showGroqKey ? "Hide" : "Show"}
+            </button>
+          </div>
+          <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+            Get free API key from console.groq.com
+          </span>
+        </div>
+
+        <div style={styles.field}>
+          <label style={{ ...styles.label, color: theme.textSecondary }}>
+            Model
+          </label>
+          <select
+            style={{
+              ...styles.input,
+              background: theme.bgInput,
+              border: `1px solid ${theme.border}`,
+              color: theme.textPrimary,
+              cursor: "pointer",
+            }}
+            value={groqModel}
+            onChange={(e) => setGroqModel(e.target.value)}
+          >
+            <option value="openai/gpt-oss-120b">GPT OSS 120B — Most capable</option>
+            <option value="openai/gpt-oss-20b">GPT OSS 20B — Faster</option>
+            <option value="qwen/qwen3.8-27b">Qwen 3.8 27B — Alternative</option>
+          </select>
+        </div>
+      </div>
+    )}
+
+    {/* Gemini Settings */}
+    {provider === "gemini" && (
+      <div style={providerStyles.box}>
+        <div style={{ ...providerStyles.title, color: theme.textSecondary }}>
+          Google Gemini Configuration
+        </div>
+
+        <div style={styles.field}>
+          <label style={{ ...styles.label, color: theme.textSecondary }}>
+            API Key
+          </label>
+          <div style={styles.inputRow}>
+            <input
+              style={{
+                ...styles.input,
+                background: theme.bgInput,
+                border: `1px solid ${theme.border}`,
+                color: theme.textPrimary,
+              }}
+              type={showGeminiKey ? "text" : "password"}
+              value={geminiApiKey}
+              onChange={(e) => setGeminiApiKey(e.target.value)}
+              placeholder="AIza..."
+            />
+            <button
+              style={{
+                ...styles.toggleBtn,
+                background: theme.bgHover,
+                border: `1px solid ${theme.border}`,
+                color: theme.textSecondary,
+              }}
+              onClick={() => setShowGeminiKey(!showGeminiKey)}
+            >
+              {showGeminiKey ? "Hide" : "Show"}
+            </button>
+          </div>
+          <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+            Get free API key from aistudio.google.com
+          </span>
+        </div>
+
+        <div style={styles.field}>
+          <label style={{ ...styles.label, color: theme.textSecondary }}>
+            Model
+          </label>
+          <select
+            style={{
+              ...styles.input,
+              background: theme.bgInput,
+              border: `1px solid ${theme.border}`,
+              color: theme.textPrimary,
+              cursor: "pointer",
+            }}
+            value={geminiModel}
+            onChange={(e) => setGeminiModel(e.target.value)}
+          >
+            <option value="gemini-2.0-flash">Gemini 2.0 Flash — Fast</option>
+            <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite — Fastest</option>
+            <option value="gemini-1.5-pro">Gemini 1.5 Pro — Most capable</option>
+          </select>
+        </div>
+      </div>
+    )}
+
+    {/* Ollama Settings */}
+    {provider === "ollama" && (
+      <div style={providerStyles.box}>
+        <div style={{ ...providerStyles.title, color: theme.textSecondary }}>
+          Ollama Configuration
+        </div>
+
+        <div
+          style={{
+            ...providerStyles.notice,
+            background: theme.accentLight,
+            border: `1px solid ${theme.accent}33`,
+            color: theme.textSecondary,
+          }}
+        >
+          Ollama must be running on your machine. Install from ollama.com and run a model before connecting.
+        </div>
+
+        <div style={styles.field}>
+          <label style={{ ...styles.label, color: theme.textSecondary }}>
+            Server URL
+          </label>
+          <input
+            style={{
+              ...styles.input,
+              background: theme.bgInput,
+              border: `1px solid ${theme.border}`,
+              color: theme.textPrimary,
+              fontFamily: "Monaco, Menlo, monospace",
+            }}
+            value={ollamaUrl}
+            onChange={(e) => setOllamaUrl(e.target.value)}
+            placeholder="http://localhost:11434/v1"
+          />
+        </div>
+
+        <div style={styles.field}>
+          <label style={{ ...styles.label, color: theme.textSecondary }}>
+            Model Name
+          </label>
+          <input
+            style={{
+              ...styles.input,
+              background: theme.bgInput,
+              border: `1px solid ${theme.border}`,
+              color: theme.textPrimary,
+              fontFamily: "Monaco, Menlo, monospace",
+            }}
+            value={ollamaModel}
+            onChange={(e) => setOllamaModel(e.target.value)}
+            placeholder="llama3.2"
+          />
+          <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+            Run: ollama pull llama3.2
+          </span>
+        </div>
+      </div>
+    )}
+  </div>
+)}
 
           {/* API Keys */}
           {activeSection === "api" && (
-            <div style={styles.section}>
-              <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
-                API Configuration
-              </h3>
-              <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
-                Your Groq API key for AI model access.
-              </p>
-              <div style={styles.field}>
-                <label style={{ ...styles.label, color: theme.textSecondary }}>
-                  Groq API Key
-                </label>
-                <div style={styles.inputRow}>
-                  <input
-                    style={{
-                      ...styles.input,
-                      background: theme.bgInput,
-                      border: `1px solid ${theme.border}`,
-                      color: theme.textPrimary,
-                    }}
-                    type={showKey ? "text" : "password"}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="gsk_..."
-                  />
-                  <button
-                    style={{
-                      ...styles.toggleBtn,
-                      background: theme.bgHover,
-                      border: `1px solid ${theme.border}`,
-                      color: theme.textSecondary,
-                    }}
-                    onClick={() => setShowKey(!showKey)}
-                  >
-                    {showKey ? "Hide" : "Show"}
-                  </button>
-                </div>
-                <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
-                  Get your free API key from console.groq.com
-                </span>
-              </div>
-            </div>
-          )}
+          <div style={styles.section}>
+          <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
+           API Keys
+          </h3>
+          <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
+          API keys are now configured in the AI Model section. Select your provider there to enter your API key.
+          </p>
+      <button
+      style={{
+        ...styles.saveBtn,
+        background: theme.accent,
+        color: "#fff",
+        alignSelf: "flex-start",
+        marginTop: "8px",
+        border: "none",
+        padding: "10px 20px",
+        cursor: "pointer",
+      }}
+      onClick={() => setActiveSection("model")}
+    >
+      Go to AI Model
+    </button>
+  </div>
+)}
 
           {/* Agent Mode */}
           {activeSection === "agentmode" && (

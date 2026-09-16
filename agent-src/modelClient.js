@@ -1,26 +1,54 @@
 const Groq = require("groq-sdk");
 
 class ModelClient {
-  constructor() {
-    this.client = new Groq({
-      apiKey: process.env.GROQ_API_KEY,
-    });
-    this.model = "openai/gpt-oss-120b";
+  constructor(provider = "groq", config = {}) {
+    this.provider = provider;
+    this.config = config;
+    this.setupClient();
   }
 
-  // simple message بھیجیں
+  setupClient() {
+    switch (this.provider) {
+      case "groq":
+        this.client = new Groq({
+          apiKey: this.config.apiKey || process.env.GROQ_API_KEY,
+        });
+        this.model = this.config.model || "openai/gpt-oss-120b";
+        break;
+
+      case "gemini":
+        // Gemini OpenAI compatible API استعمال کریں
+        this.client = new Groq({
+          apiKey: this.config.apiKey || process.env.GEMINI_API_KEY,
+          baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+        });
+        this.model = this.config.model || "gemini-2.0-flash";
+        break;
+
+      case "ollama":
+        // Ollama OpenAI compatible API
+        this.client = new Groq({
+          apiKey: "ollama",
+          baseURL: this.config.baseURL || "http://localhost:11434/v1",
+        });
+        this.model = this.config.model || "llama3.2";
+        break;
+
+      default:
+        throw new Error(`Unknown provider: ${this.provider}`);
+    }
+  }
+
   async sendMessage(messages) {
     const response = await this.client.chat.completions.create({
       model: this.model,
       messages: messages,
       temperature: 0.7,
-      max_tokens: 8192,
+      max_tokens: 4096,
     });
-
     return response.choices[0].message.content;
   }
 
-  // tools کے ساتھ message بھیجیں
   async sendMessageWithTools(messages, tools) {
     const response = await this.client.chat.completions.create({
       model: this.model,
@@ -35,13 +63,11 @@ class ModelClient {
       })),
       tool_choice: "auto",
       temperature: 0.7,
-      max_tokens: 4096,
+      max_tokens: 8192,
     });
-
     return response.choices[0];
   }
-  
-    // sendMessageWithToolsStream
+
   async sendMessageWithToolsStream(messages, tools, onChunk) {
     const stream = await this.client.chat.completions.create({
       model: this.model,
