@@ -1,4 +1,5 @@
 const Groq = require("groq-sdk");
+const OpenAI = require("openai");
 
 class ModelClient {
   constructor(provider = "groq", config = {}) {
@@ -17,17 +18,17 @@ class ModelClient {
         break;
 
       case "gemini":
-        // Gemini OpenAI compatible API استعمال کریں
-        this.client = new Groq({
+        // ✅ FIX: OpenAI SDK استعمال کریں Gemini کے لیے
+        this.client = new OpenAI({
           apiKey: this.config.apiKey || process.env.GEMINI_API_KEY,
           baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
         });
-        this.model = this.config.model || "gemini-2.0-flash";
+        this.model = this.config.model || "gemini-3.5-flash-lite";
         break;
 
       case "ollama":
         // Ollama OpenAI compatible API
-        this.client = new Groq({
+        this.client = new OpenAI({
           apiKey: "ollama",
           baseURL: this.config.baseURL || "http://localhost:11434/v1",
         });

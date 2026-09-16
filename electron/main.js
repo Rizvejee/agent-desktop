@@ -92,44 +92,57 @@ function getAgent(projectPath) {
     const Agent = require("../agent-src/agent");
     agentInstance = new Agent(projectPath);
 
-    // settings سے provider اور model لوڈ کریں
+    // Settings سے provider اور model لوڈ کریں
     if (fs.existsSync(SETTINGS_FILE)) {
-      const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf-8"));
+      try {
+        const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf-8"));
+        const ModelClient = require("../agent-src/modelClient");
+        const provider = settings.provider || "groq";
+        let config = {};
 
-      // model client کو settings کے مطابق بنائیں
-      const ModelClient = require("../agent-src/modelClient");
-      const provider = settings.provider || "groq";
+        switch (provider) {
+          case "groq":
+            config = {
+              apiKey: settings.groqApiKey || process.env.GROQ_API_KEY,
+              model: settings.groqModel || "openai/gpt-oss-120b",
+            };
+            break;
+          case "gemini":
+            config = {
+              apiKey: settings.geminiApiKey || process.env.GEMINI_API_KEY,
+              model: settings.geminiModel || "gemini-2.0-flash",
+            };
+            break;
+          case "ollama":
+            config = {
+              baseURL: settings.ollamaUrl || "http://localhost:11434/v1",
+              model: settings.ollamaModel || "llama3.2",
+            };
+            break;
+        }
 
-      let config = {};
-      switch (provider) {
-        case "groq":
-          config = {
-            apiKey: settings.groqApiKey || process.env.GROQ_API_KEY,
-            model: settings.groqModel || "openai/gpt-oss-120b",
-          };
-          break;
-        case "gemini":
-          config = {
-            apiKey: settings.geminiApiKey || process.env.GEMINI_API_KEY,
-            model: settings.geminiModel || "gemini-2.0-flash",
-          };
-          break;
-        case "ollama":
-          config = {
-            baseURL: settings.ollamaUrl || "http://localhost:11434/v1",
-            model: settings.ollamaModel || "llama3.2",
-          };
-          break;
+        // ✅ CHECK: API key موجود ہے یا نہیں
+        if (provider !== "ollama" && !config.apiKey) {
+          console.warn(`⚠️  No API key found for ${provider}!`);
+          console.warn(`   Settings file: ${SETTINGS_FILE}`);
+          console.warn(`   Settings content:`, JSON.stringify(settings, null, 2));
+        } else {
+          console.log(`✅ Using ${provider} with model: ${config.model}`);
+        }
+
+        agentInstance.modelClient = new ModelClient(provider, config);
+
+        // Agent settings apply کریں
+        if (settings.agentSettings) {
+          agentInstance.systemPrompt = agentInstance.buildSystemPrompt(
+            settings.agentSettings
+          );
+        }
+      } catch (error) {
+        console.error("❌ Error loading settings:", error);
       }
-
-      agentInstance.modelClient = new ModelClient(provider, config);
-
-      // agent settings بھی apply کریں
-      if (settings.agentSettings) {
-        agentInstance.systemPrompt = agentInstance.buildSystemPrompt(
-          settings.agentSettings
-        );
-      }
+    } else {
+      console.warn(`⚠️  Settings file not found: ${SETTINGS_FILE}`);
     }
   }
   return agentInstance;
@@ -351,15 +364,23 @@ ipcMain.handle("save-settings", async (event, { settings }) => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
 
-    // API key اور model update کریں
-    if (settings.apiKey) {
-      process.env.GROQ_API_KEY = settings.apiKey;
+    // ✅ FIX: صحیح variable names استعمال کریں
+    if (settings.groqApiKey) {
+      process.env.GROQ_API_KEY = settings.groqApiKey;
     }
-    // agent reset کریں تاکہ نئی settings apply ہوں
-    agentInstance = null;
+    if (settings.geminiApiKey) {
+      process.env.GEMINI_API_KEY = settings.geminiApiKey;
+    }
 
+    // ✅ FIX: Agent کو مکمل reset کریں
+    agentInstance = null;
+    
+    console.log("✅ Settings saved. Provider:", settings.provider);
+    console.log("✅ Agent reset. Next message will use new settings.");
+    
     return { success: true };
   } catch (error) {
+    console.error("❌ Save settings error:", error);
     return { success: false, error: error.message };
   }
 });

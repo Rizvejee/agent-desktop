@@ -34,7 +34,7 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
   const [groqApiKey, setGroqApiKey] = useState("");
   const [groqModel, setGroqModel] = useState("openai/gpt-oss-120b");
   const [geminiApiKey, setGeminiApiKey] = useState("");
-  const [geminiModel, setGeminiModel] = useState("gemini-2.0-flash");
+  const [geminiModel, setGeminiModel] = useState("gemini-3.5-flash-lite");
   const [ollamaUrl, setOllamaUrl] = useState("http://localhost:11434/v1");
   const [ollamaModel, setOllamaModel] = useState("llama3.2");
   const [showGroqKey, setShowGroqKey] = useState(false);
@@ -541,7 +541,7 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
             value={geminiModel}
             onChange={(e) => setGeminiModel(e.target.value)}
           >
-            <option value="gemini-2.0-flash">Gemini 2.0 Flash — Fast</option>
+            <option value="gemini-2.0-flash">Gemini 3.5 Flash Lite</option>
             <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite — Fastest</option>
             <option value="gemini-1.5-pro">Gemini 1.5 Pro — Most capable</option>
           </select>
