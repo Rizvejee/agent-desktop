@@ -79,4 +79,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ipcRenderer.invoke("list-files-tree", { projectPath }),
   readFileContent: (projectPath, filePath) =>
   ipcRenderer.invoke("read-file-content", { projectPath, filePath }),
+
+  // ExportChate
+  exportChat: (chat) =>
+  ipcRenderer.invoke("export-chat", { chat }),
+
+  // Fetch available Gemini models
+fetchGeminiModels: (apiKey) =>
+  ipcRenderer.invoke("fetch-gemini-models", { apiKey }),
+  // Fetch available Groq models
+  fetchGroqModels: (apiKey) =>
+    ipcRenderer.invoke("fetch-groq-models", { apiKey }),
+
 });

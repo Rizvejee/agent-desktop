@@ -30,11 +30,17 @@ const NAV_ITEMS = [
 
 
 export default function Settings({ onClose, onThemeChange, currentTheme }) {
+  const [customModel, setCustomModel] = useState("");
+  const [availableGroqModels, setAvailableGroqModels] = useState([]);
+  const [loadingGroqModels, setLoadingGroqModels] = useState(false);
+  const [availableModels, setAvailableModels] = useState([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [modelError, setModelError] = useState("");
   const [provider, setProvider] = useState("groq");
   const [groqApiKey, setGroqApiKey] = useState("");
   const [groqModel, setGroqModel] = useState("openai/gpt-oss-120b");
   const [geminiApiKey, setGeminiApiKey] = useState("");
-  const [geminiModel, setGeminiModel] = useState("gemini-3.5-flash-lite");
+  const [geminiModel, setGeminiModel] = useState("");
   const [ollamaUrl, setOllamaUrl] = useState("http://localhost:11434/v1");
   const [ollamaModel, setOllamaModel] = useState("llama3.2");
   const [showGroqKey, setShowGroqKey] = useState(false);
@@ -85,8 +91,47 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
         if (s.agentSettings.rules) setAgentRules(s.agentSettings.rules);
         if (s.agentSettings.technologies) setAgentTechnologies(s.agentSettings.technologies);
       }
+      if (s.customModel) setCustomModel(s.customModel);
     }
   }
+
+  async function fetchAvailableModels() {
+    if (!geminiApiKey) {
+      alert("Please enter API Key first to fetch models!");
+      return;
+    }
+    setLoadingModels(true);
+    try {
+      const result = await window.electronAPI.fetchGeminiModels(geminiApiKey);
+      if (result.success) {
+        setAvailableModels(result.models);
+      } else {
+        alert("Error fetching models: " + result.error);
+      }
+    } catch (error) {
+      alert("Error: " + error.message);
+    }
+    setLoadingModels(false);
+  }
+
+  async function fetchAvailableGroqModels() {
+  if (!groqApiKey) {
+    alert("Please enter Groq API Key first to fetch models!");
+    return;
+  }
+  setLoadingGroqModels(true);
+  try {
+    const result = await window.electronAPI.fetchGroqModels(groqApiKey);
+    if (result.success) {
+      setAvailableGroqModels(result.models);
+    } else {
+      alert("Error fetching models: " + result.error);
+    }
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+  setLoadingGroqModels(false);
+}
 
   async function saveSettings() {
     await window.electronAPI.saveSettings({
@@ -97,6 +142,7 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
       geminiModel,
       ollamaUrl,
       ollamaModel,
+      customModel,
       agentMode,
       theme: currentTheme,
       agentSettings: {
@@ -463,25 +509,75 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
         </div>
 
         <div style={styles.field}>
-          <label style={{ ...styles.label, color: theme.textSecondary }}>
-            Model
-          </label>
-          <select
-            style={{
-              ...styles.input,
-              background: theme.bgInput,
-              border: `1px solid ${theme.border}`,
-              color: theme.textPrimary,
-              cursor: "pointer",
-            }}
-            value={groqModel}
-            onChange={(e) => setGroqModel(e.target.value)}
-          >
-            <option value="openai/gpt-oss-120b">GPT OSS 120B — Most capable</option>
-            <option value="openai/gpt-oss-20b">GPT OSS 20B — Faster</option>
-            <option value="qwen/qwen3.8-27b">Qwen 3.8 27B — Alternative</option>
-          </select>
-        </div>
+  <label style={{ ...styles.label, color: theme.textSecondary }}>
+    Model Name
+  </label>
+
+  {/* کسٹم ان پٹ - یہاں جو بھی لکھیں گے وہی سیٹ ہوگا */}
+  <input
+    style={{
+      ...styles.input,
+      background: theme.bgInput,
+      border: `1px solid ${theme.border}`,
+      color: theme.textPrimary,
+      fontFamily: "Monaco, Menlo, monospace",
+    }}
+    value={groqModel}
+    onChange={(e) => setGroqModel(e.target.value)}
+    placeholder="e.g., llama-3.3-70b-versatile or type custom model"
+  />
+  <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+    Currently selected: <strong style={{color: theme.accent}}>{groqModel || "None"}</strong>
+  </span>
+
+  {/* فیچ بٹن */}
+  <button
+    style={{
+      ...styles.saveBtn,
+      background: theme.bgHover,
+      color: theme.textSecondary,
+      border: `1px solid ${theme.border}`,
+      marginTop: "10px",
+      alignSelf: "flex-start",
+    }}
+    onClick={fetchAvailableGroqModels}
+    disabled={loadingGroqModels}
+  >
+    {loadingGroqModels ? "Fetching..." : "🔄 Fetch Available Models from Groq"}
+  </button>
+
+  {/* فیچ کی گئی لسٹ */}
+  {availableGroqModels.length > 0 && (
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: "6px",
+      marginTop: "10px",
+      maxHeight: "200px",
+      overflowY: "auto"
+    }}>
+      <span style={{ ...styles.fieldHint, color: theme.textMuted, marginBottom: "4px" }}>
+        Click a model to select it:
+      </span>
+      {availableGroqModels.map((m) => (
+        <button
+          key={m.id}
+          style={{
+            ...styles.techBtn,
+            background: groqModel === m.id ? theme.accentLight : theme.bgCard,
+            border: groqModel === m.id ? `1.5px solid ${theme.accent}` : `1px solid ${theme.border}`,
+            color: groqModel === m.id ? theme.accent : theme.textSecondary,
+            justifyContent: "flex-start",
+            textAlign: "left",
+          }}
+          onClick={() => setGroqModel(m.id)}
+        >
+          {m.name}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
       </div>
     )}
 
@@ -527,24 +623,76 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
         </div>
 
         <div style={styles.field}>
-          <label style={{ ...styles.label, color: theme.textSecondary }}>
-            Model
-          </label>
-          <select
-            style={{
-              ...styles.input,
-              background: theme.bgInput,
-              border: `1px solid ${theme.border}`,
-              color: theme.textPrimary,
-              cursor: "pointer",
-            }}
-            value={geminiModel}
-            onChange={(e) => setGeminiModel(e.target.value)}
-          >
-            <option value="gemini-2.0-flash">Gemini 3.5 Flash Lite</option>
-            <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite — Fastest</option>
-            <option value="gemini-1.5-pro">Gemini 1.5 Pro — Most capable</option>
-          </select>
+          <div style={styles.field}>
+  <label style={{ ...styles.label, color: theme.textSecondary }}>
+    Model Name
+  </label>
+
+  {/* کسٹم ان پٹ - یہاں جو بھی لکھیں گے وہی سیٹ ہوگا */}
+  <input
+    style={{
+      ...styles.input,
+      background: theme.bgInput,
+      border: `1px solid ${theme.border}`,
+      color: theme.textPrimary,
+      fontFamily: "Monaco, Menlo, monospace",
+    }}
+    value={geminiModel}
+    onChange={(e) => setGeminiModel(e.target.value)}
+    placeholder="e.g., gemini-1.5-flash or type custom model"
+  />
+  <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+    Currently selected: <strong style={{color: theme.accent}}>{geminiModel || "None"}</strong>
+  </span>
+
+  {/* فیچ بٹن */}
+  <button
+    style={{
+      ...styles.saveBtn,
+      background: theme.bgHover,
+      color: theme.textSecondary,
+      border: `1px solid ${theme.border}`,
+      marginTop: "10px",
+      alignSelf: "flex-start",
+    }}
+    onClick={fetchAvailableModels}
+    disabled={loadingModels}
+  >
+    {loadingModels ? "Fetching..." : "🔄 Fetch Available Models from Google"}
+  </button>
+
+  {/* فیچ کی گئی لسٹ */}
+  {availableModels.length > 0 && (
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: "6px",
+      marginTop: "10px",
+      maxHeight: "200px",
+      overflowY: "auto"
+    }}>
+      <span style={{ ...styles.fieldHint, color: theme.textMuted, marginBottom: "4px" }}>
+        Click a model to select it:
+      </span>
+      {availableModels.map((m) => (
+        <button
+          key={m.id}
+          style={{
+            ...styles.techBtn,
+            background: geminiModel === m.id ? theme.accentLight : theme.bgCard,
+            border: geminiModel === m.id ? `1.5px solid ${theme.accent}` : `1px solid ${theme.border}`,
+            color: geminiModel === m.id ? theme.accent : theme.textSecondary,
+            justifyContent: "flex-start",
+            textAlign: "left",
+          }}
+          onClick={() => setGeminiModel(m.id)}
+        >
+          {m.name}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
         </div>
       </div>
     )}
@@ -978,5 +1126,44 @@ const styles = {
     fontWeight: "500",
     cursor: "pointer",
     transition: "all 0.15s",
+  },
+  fetchBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "8px 14px",
+    borderRadius: "8px",
+    fontSize: "12px",
+    cursor: "pointer",
+    marginTop: "8px",
+  },
+  errorBox: {
+    marginTop: "10px",
+  },
+  modelsList: {
+    marginTop: "10px",
+  },
+  modelsTitle: {
+    fontSize: "12px",
+    fontWeight: "600",
+    marginBottom: "8px",
+  },
+  modelItem: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    padding: "8px 10px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    marginBottom: "6px",
+    textAlign: "left",
+    width: "100%",
+  },
+  modelName: {
+    fontSize: "13px",
+    fontWeight: "500",
+  },
+  modelDesc: {
+    fontSize: "11px",
   },
 };

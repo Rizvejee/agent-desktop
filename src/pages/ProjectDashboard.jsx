@@ -139,6 +139,15 @@ function RenameModal({ title, value, onSave, onClose, theme }) {
     </div>
   );
 }
+    // EportChat
+    async function exportChat(chat) {
+      const result = await window.electronAPI.exportChat(chat);
+      if (result.success) {
+        alert(`Exported!\n${result.filePath}`);
+      } else if (result.error) {
+        alert(`Failed: ${result.error}`);
+      }
+    }
 
 function AddKnowledgeModal({ onClose, onSaveFile, onUploadFile, theme }) {
   const [name, setName] = useState("");
@@ -308,7 +317,7 @@ export default function ProjectDashboard({
     setIsEditingInstructions(false);
   }
 
-  
+
 
   async function loadKnowledgeFiles() {
     const result = await window.electronAPI.getKnowledgeFiles(project.id);
@@ -487,26 +496,31 @@ export default function ProjectDashboard({
                       </div>
                       <ChevronRight size={14} color={theme.textMuted} />
                       <ThreeDotMenu
-                        theme={theme}
-                        items={[
-                          {
-                            icon: <Edit2 size={13} />,
-                            label: "Rename",
-                            onClick: () =>
-                              setRenameModal({
-                                title: "Rename Chat",
-                                value: chat.title,
-                                onSave: (name) => onRenameChat(project.id, chat.id, name),
-                              }),
-                          },
-                          {
-                            icon: <Trash2 size={13} />,
-                            label: "Delete",
-                            danger: true,
-                            onClick: () => onDeleteChat(project.id, chat.id),
-                          },
-                        ]}
-                      />
+                      theme={theme}
+                      items={[
+                      {
+                      icon: <Edit2 size={13} />,
+                      label: "Rename",
+                      onClick: () =>
+                      setRenameModal({
+                      title: "Rename Chat",
+                      value: chat.title,
+                      onSave: (name) => onRenameChat(project.id, chat.id, name),
+                      }),
+                    },
+                    {
+                      icon: <FileText size={13} />,
+                      label: "Export as Text",
+                      onClick: () => exportChat(chat),
+                    },
+                    {
+                     icon: <Trash2 size={13} />,
+                     label: "Delete",
+                     danger: true,
+                     onClick: () => onDeleteChat(project.id, chat.id),
+                    },
+                    ]}
+                    />
                     </div>
                   ))}
                 </div>

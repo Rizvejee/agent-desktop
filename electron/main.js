@@ -374,10 +374,10 @@ ipcMain.handle("save-settings", async (event, { settings }) => {
 
     // ✅ FIX: Agent کو مکمل reset کریں
     agentInstance = null;
-    
+
     console.log("✅ Settings saved. Provider:", settings.provider);
     console.log("✅ Agent reset. Next message will use new settings.");
-    
+
     return { success: true };
   } catch (error) {
     console.error("❌ Save settings error:", error);
@@ -486,7 +486,7 @@ ipcMain.handle("run-terminal-command", async (event, { command, projectPath }) =
     const allowedCommands = [
       "npm", "npx", "node", "ls", "pwd", "cat",
       "mkdir", "touch", "git", "yarn", "pnpm",
-      "expo", "react-native", "next",
+      "expo", "react-native", "next", "rm", "rm -rf",
     ];
 
     const commandName = command.trim().split(" ")[0];
@@ -590,6 +590,73 @@ ipcMain.handle("read-file-content", async (event, { projectPath, filePath }) => 
     }
     const content = fs.readFileSync(fullPath, "utf-8");
     return { success: true, content };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+    // ExportChat handler
+    ipcMain.handle("export-chat", async (event, { chat }) => {
+      try {
+        const result = await dialog.showSaveDialog(mainWindow, {
+          title: "Export Chat",
+          defaultPath: `${chat.title.replace(/[^a-zA-Z0-9]/g, "-")}.txt`,
+          filters: [{ name: "Text File", extensions: ["txt"] }],
+        });
+
+        if (result.canceled) return { success: false };
+
+        let content = `${chat.title}\n`;
+        content += `Exported: ${new Date().toLocaleDateString()}\n`;
+        content += "=".repeat(50) + "\n\n";
+
+        for (const msg of chat.messages) {
+          if (msg.role === "system") continue;
+          const sender = msg.role === "user" ? "You" : "Coder";
+          content += `${sender}:\n${msg.content}\n\n`;
+          content += "-".repeat(40) + "\n\n";
+        }
+
+        fs.writeFileSync(result.filePath, content, "utf-8");
+        return { success: true, filePath: result.filePath };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    });
+
+    // ── IPC: Fetch Gemini Models ─────────────────────────────
+ipcMain.handle("fetch-gemini-models", async (event, { apiKey }) => {
+  try {
+    // گوگل کی آفیشل API سے لسٹ مانگیں
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const data = await response.json();
+
+    if (data.error) {
+      return { success: false, error: data.error.message };
+    }
+
+    // صرف وہ ماڈلز لیں جو "generateContent" سپورٹ کرتے ہیں
+    const models = (data.models || [])
+      .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
+      .map(m => ({
+        id: m.name.replace("models/", ""), // "models/" ہٹا کر صرف نام لیں
+        name: m.displayName || m.name.replace("models/", ""),
+      }));
+
+    return { success: true, models };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ── IPC: Fetch Groq Models ──────────────────────────────
+ipcMain.handle("fetch-groq-models", async (event, { apiKey }) => {
+  try {
+    const ModelClient = require("../agent-src/modelClient");
+    // Groq client بنائیں
+    const client = new ModelClient("groq", { apiKey, model: "dummy" });
+    const models = await client.getAvailableModels();
+    return { success: true, models };
   } catch (error) {
     return { success: false, error: error.message };
   }
