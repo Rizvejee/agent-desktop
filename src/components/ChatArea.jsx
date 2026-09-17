@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, MessageSquare } from "lucide-react";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 import { useTheme } from "../ThemeContext";
@@ -130,19 +130,34 @@ export default function ChatArea({
     <div style={{ ...styles.container, background: theme.bgMain }}>
 
        {/* Header */}
-       <div
-    style={{
+       {/* Header — چیٹ کا نام باکس میں */}
+<div
+  style={{
     ...styles.header,
     background: "transparent",
     borderBottom: "none",
     boxShadow: "none",
     justifyContent: "center",
     padding: "14px 20px 8px",
+  }}
+  >
+  <div
+    style={{
+      background: theme.bgCard,
+      border: `1px solid ${theme.border}`,
+      borderRadius: "20px",
+      padding: "6px 16px",
+      boxShadow: theme.shadow,
+      display: "flex",
+      alignItems: "center",
+      gap: "6px",
     }}
     >
-  <span style={{ ...styles.chatTitle, color: theme.textPrimary }}>
-    {activeChat.title}
-  </span>
+    <MessageSquare size={13} color={theme.textMuted} />
+    <span style={{ ...styles.chatTitle, color: theme.textSecondary }}>
+      {activeChat.title}
+    </span>
+  </div>
 </div>
       {/* Messages */}
       <MessageList
@@ -379,8 +394,8 @@ const styles = {
   },
 
   chatTitle: {
-    fontSize: "15px",
-    fontWeight: "600",
-    letterSpacing: "0.3px",
-  },
+  fontSize: "16px",
+  fontWeight: "550",
+  letterSpacing: "0.3px",
+},
 };

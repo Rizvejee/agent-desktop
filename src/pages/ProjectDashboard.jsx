@@ -509,9 +509,9 @@ export default function ProjectDashboard({
                       }),
                     },
                     {
-                      icon: <FileText size={13} />,
-                      label: "Export as Text",
-                      onClick: () => exportChat(chat),
+                     icon: <FileText size={13} />,
+                     label: "Export as Markdown",
+                     onClick: () => exportChat(chat),
                     },
                     {
                      icon: <Trash2 size={13} />,
@@ -745,24 +745,6 @@ export default function ProjectDashboard({
             )}
           </div>
         </div>
-
-        {/* Right — File Tree */}
-        <div
-          style={{
-            ...styles.fileTreePanel,
-            background: theme.bgSidebar,
-            borderLeft: `1px solid ${theme.border}`,
-          }}
-        >
-          <div style={styles.fileTreeHeader}>
-            <span style={{ ...styles.fileTreeTitle, color: theme.textMuted }}>
-              Project Files
-            </span>
-          </div>
-          <pre style={{ ...styles.fileTree, color: theme.textMuted }}>
-            {fileTree || "Loading..."}
-          </pre>
-        </div>
       </div>
     </div>
   );
@@ -980,33 +962,6 @@ const styles = {
     whiteSpace: "pre-wrap",
     margin: 0,
     fontFamily: "inherit",
-  },
-  fileTreePanel: {
-    width: "220px",
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-    flexShrink: 0,
-  },
-  fileTreeHeader: {
-    padding: "14px 14px 8px",
-    flexShrink: 0,
-  },
-  fileTreeTitle: {
-    fontSize: "11px",
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-  },
-  fileTree: {
-    fontSize: "11px",
-    lineHeight: "1.8",
-    whiteSpace: "pre-wrap",
-    fontFamily: "Monaco, Menlo, monospace",
-    padding: "0 14px 14px",
-    overflowY: "auto",
-    flex: 1,
-    margin: 0,
   },
 };
 

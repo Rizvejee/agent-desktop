@@ -9,18 +9,20 @@ let mainWindow;
 // ─── Window ──────────────────────────────────────────────
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 800,
-    minHeight: 600,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-    show: false,
-    backgroundColor: "#ffffff",
-  });
+  width: 1200,
+  height: 800,
+  minWidth: 800,
+  minHeight: 600,
+  frame: false, // ونڈو بار ہٹا دیں
+  titleBarStyle: "hidden", // Mac کے لیے
+  webPreferences: {
+    preload: path.join(__dirname, "preload.js"),
+    contextIsolation: true,
+    nodeIntegration: false,
+  },
+  show: false,
+  backgroundColor: "#ffffff",
+});
 
   // Right click context menu
 const { Menu, MenuItem } = require("electron");
@@ -597,32 +599,30 @@ ipcMain.handle("read-file-content", async (event, { projectPath, filePath }) => 
 
     // ExportChat handler
     ipcMain.handle("export-chat", async (event, { chat }) => {
-      try {
-        const result = await dialog.showSaveDialog(mainWindow, {
-          title: "Export Chat",
-          defaultPath: `${chat.title.replace(/[^a-zA-Z0-9]/g, "-")}.txt`,
-          filters: [{ name: "Text File", extensions: ["txt"] }],
-        });
-
-        if (result.canceled) return { success: false };
-
-        let content = `${chat.title}\n`;
-        content += `Exported: ${new Date().toLocaleDateString()}\n`;
-        content += "=".repeat(50) + "\n\n";
-
-        for (const msg of chat.messages) {
-          if (msg.role === "system") continue;
-          const sender = msg.role === "user" ? "You" : "Coder";
-          content += `${sender}:\n${msg.content}\n\n`;
-          content += "-".repeat(40) + "\n\n";
-        }
-
-        fs.writeFileSync(result.filePath, content, "utf-8");
-        return { success: true, filePath: result.filePath };
-      } catch (error) {
-        return { success: false, error: error.message };
-      }
+  try {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: "Export Chat",
+      defaultPath: `${chat.title.replace(/[^a-zA-Z0-9]/g, "-")}.md`,
+      filters: [{ name: "Markdown", extensions: ["md"] }],
     });
+
+    if (result.canceled) return { success: false };
+
+    let content = `# ${chat.title}\n\n`;
+    content += `*Exported: ${new Date().toLocaleDateString()}*\n\n---\n\n`;
+
+    for (const msg of chat.messages) {
+      if (msg.role === "system") continue;
+      const sender = msg.role === "user" ? "**You**" : "**Coder**";
+      content += `### ${sender}\n\n${msg.content}\n\n---\n\n`;
+    }
+
+    fs.writeFileSync(result.filePath, content, "utf-8");
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
 
     // ── IPC: Fetch Gemini Models ─────────────────────────────
 ipcMain.handle("fetch-gemini-models", async (event, { apiKey }) => {
@@ -660,4 +660,23 @@ ipcMain.handle("fetch-groq-models", async (event, { apiKey }) => {
   } catch (error) {
     return { success: false, error: error.message };
   }
+});
+
+// ─── IPC: Window Controls ───────────────────────────────
+ipcMain.handle("minimize-window", () => {
+  if (mainWindow) mainWindow.minimize();
+});
+
+ipcMain.handle("maximize-window", () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+ipcMain.handle("close-window", () => {
+  if (mainWindow) mainWindow.close();
 });

@@ -100,9 +100,28 @@ function ToolStatusItem({ tool, status, input, theme }) {
   );
 }
 
+// اردو/عربی ٹیکسٹ ڈیٹیکٹ کریں
+function isUrduText(text) {
+  return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text);
+}
+
 function AgentMessage({ content, theme, mode }) {
+  const hasUrdu = isUrduText(content);
+  
   return (
-    <div style={{ ...agentStyles.container, color: theme.textPrimary }}>
+    <div 
+      style={{ 
+        ...agentStyles.container, 
+        color: theme.textPrimary,
+        fontFamily: hasUrdu 
+          ? "'Noto Nastaliq Urdu', serif" 
+          : "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
+        fontWeight: hasUrdu ? 500 : 400,
+        lineHeight: hasUrdu ? "1.9" : "1.7",
+        direction: hasUrdu ? "rtl" : "ltr",
+        textAlign: hasUrdu ? "right" : "left",
+      }}
+    >
       <ReactMarkdown
         components={{
           // Code blocks
@@ -110,15 +129,6 @@ function AgentMessage({ content, theme, mode }) {
             const match = /language-(\w+)/.exec(className || "");
             const language = match ? match[1] : "";
             const code = String(children).replace(/\n$/, "");
-
-            // HTML/CSS/JS کو ArtifactPreview میں دکھائیں
-            const artifactLanguages = ["html", "htm", "css", "js", "javascript"];
-            const isArtifact = !inline && artifactLanguages.includes(language.toLowerCase());
-
-            if (isArtifact) {
-              return <ArtifactPreview code={code} language={language} />;
-            }
-
             if (!inline && (match || code.includes("\n"))) {
               return (
                 <CodeBlock
@@ -143,12 +153,9 @@ function AgentMessage({ content, theme, mode }) {
               </code>
             );
           },
-
           // Paragraphs
           p({ children }) {
-            return (
-              <p style={agentStyles.paragraph}>{children}</p>
-            );
+            return <p style={agentStyles.paragraph}>{children}</p>;
           },
           // Headings
           h1({ children }) {
@@ -235,7 +242,7 @@ export default function MessageList({ messages, isThinking, toolStatuses, stream
           position: "absolute",
           bottom: "6px",
           right: "8px",
-          background: "rgba(255,255,255,0.2)",
+          background: "theme.shadow",
           border: "none",
           borderRadius: "6px",
           padding: "4px 8px",
@@ -244,7 +251,7 @@ export default function MessageList({ messages, isThinking, toolStatuses, stream
           alignItems: "center",
           gap: "4px",
           fontSize: "11px",
-          color: "#fff",
+          color: "textPrimary",
           opacity: 0,
           transition: "opacity 0.2s",
         }}
@@ -422,9 +429,11 @@ const styles = {
     fontFamily: "'Segoe UI', 'Noto Nastaliq Urdu', Arial, sans-serif",
   },
   userContent: {
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-  },
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
+  lineHeight: "1.7",
+},
   agentWrapper: {
     display: "flex",
     alignItems: "flex-start",
@@ -477,19 +486,24 @@ const styles = {
   },
 };
 
-const agentStyles = {
+
+  const agentStyles = {
   container: {
-    fontSize: "14px",
-    lineHeight: "1.7",
-    fontFamily: "'Segoe UI', 'Noto Nastaliq Urdu', Arial, sans-serif",
+    fontSize: "15px",
+    lineHeight: "1.8",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
     userSelect: "text",
     cursor: "text",
+    WebkitFontSmoothing: "antialiased",
+    MozOsxFontSmoothing: "grayscale",
   },
   paragraph: {
     margin: "0 0 12px 0",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
+    lineHeight: "1.8",
   },
+  // باقی سب ویسے ہی رہیں
   heading: {
     fontWeight: "700",
     margin: "16px 0 8px 0",

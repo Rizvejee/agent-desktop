@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Bot, Moon, Sun } from "lucide-react";
+import { Bot, Moon, Sun, Maximize2, Minus, X } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
 import Settings from "./pages/Settings";
@@ -226,48 +226,51 @@ export default function App() {
   return (
     <div style={{ ...styles.container, background: theme.bgMain }}>
       {/* Header */}
-      <div
-        style={{
-          ...styles.header,
-          background: theme.bgCard,
-          borderBottom: `1px solid ${theme.border}`,
-          boxShadow: theme.shadow,
-        }}
+      <div style={{ ...styles.header, background: theme.bgCard, borderBottom: `1px solid ${theme.border}`, boxShadow: theme.shadow }}>
+  {/* ڈریگ ایبل ایریا - ونڈو کو یہاں سے گھمائیں */}
+  <div style={{ ...styles.headerLeft, WebkitAppRegion: "drag", flex: 1 }}>
+    <Bot size={20} color={theme.accent} />
+    <span style={{ ...styles.headerTitle, color: theme.textPrimary }}>My Coding Agent</span>
+  </div>
+  
+  <div style={{ ...styles.headerRight, WebkitAppRegion: "no-drag" }}>
+    {activeProject && !showSettings && !showDashboard && (
+      <span style={{ ...styles.headerStatus, color: theme.success, background: theme.successBg }}>● Online</span>
+    )}
+    
+    {/* Theme Toggle */}
+    <button style={{ ...styles.themeToggle, background: theme.bgHover, color: theme.textSecondary }} onClick={() => toggleTheme(mode === "light" ? "dark" : "light")} title="Toggle theme">
+      {mode === "light" ? <Moon size={15} /> : <Sun size={15} />}
+    </button>
+
+    {/* Window Controls */}
+    <div style={{ display: "flex", gap: "4px", marginLeft: "12px" }}>
+      <button 
+        style={{ ...styles.windowBtn, background: "transparent", color: theme.textMuted }} 
+        onClick={() => window.electronAPI.minimizeWindow()} 
+        title="Minimize"
       >
-        <div style={styles.headerLeft}>
-          <Bot size={20} color={theme.accent} />
-          <span style={{ ...styles.headerTitle, color: theme.textPrimary }}>
-            My Coding Agent
-          </span>
-        </div>
-
-        <div style={styles.headerRight}>
-          {activeProject && !showSettings && !showDashboard && (
-            <span
-              style={{
-                ...styles.headerStatus,
-                color: theme.success,
-                background: theme.successBg,
-              }}
-            >
-              ● Online
-            </span>
-          )}
-
-          <button
-            style={{
-              ...styles.themeToggle,
-              background: theme.bgHover,
-              color: theme.textSecondary,
-            }}
-            onClick={() => toggleTheme(mode === "light" ? "dark" : "light")}
-            title="Toggle theme"
-          >
-            {mode === "light" ? <Moon size={15} /> : <Sun size={15} />}
-          </button>
-        </div>
-      </div>
-
+        <Minus size={14} />
+      </button>
+      <button 
+        style={{ ...styles.windowBtn, background: "transparent", color: theme.textMuted }} 
+        onClick={() => window.electronAPI.maximizeWindow()} 
+        title="Maximize/Restore"
+      >
+        <Maximize2 size={14} />
+      </button>
+      <button 
+        style={{ ...styles.windowBtn, background: "transparent", color: theme.textMuted }} 
+        onClick={() => window.electronAPI.closeWindow()} 
+        title="Close"
+        onMouseEnter={(e) => { e.currentTarget.style.background = "#ef4444"; e.currentTarget.style.color = "#fff"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = theme.textMuted; }}
+      >
+        <X size={14} />
+      </button>
+    </div>
+  </div>
+</div>
       <div style={styles.main}>
         <Sidebar
           projects={projects}
@@ -318,27 +321,40 @@ const styles = {
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   header: {
-    padding: "12px 20px",
+    padding: "16px 20px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    WebkitAppRegion: "drag",
+    WebkitAppRegion: "drag", // پورا ہیڈر ڈریگ ایبل
     flexShrink: 0,
   },
   headerLeft: {
     display: "flex",
     alignItems: "center",
     gap: "10px",
-  },
-  headerTitle: {
-    fontSize: "15px",
-    fontWeight: "600",
+    WebkitAppRegion: "drag",
   },
   headerRight: {
     display: "flex",
     alignItems: "center",
     gap: "10px",
-    WebkitAppRegion: "no-drag",
+    WebkitAppRegion: "no-drag", // بٹنز ڈریگ ایبل نہیں ہونے چاہئیں
+  },
+  windowBtn: {
+    border: "none",
+    borderRadius: "6px",
+    padding: "6px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "30px",
+    height: "30px",
+    transition: "all 0.2s",
+  },
+  headerTitle: {
+    fontSize: "15px",
+    fontWeight: "600",
   },
   headerStatus: {
     fontSize: "12px",

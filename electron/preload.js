@@ -91,4 +91,8 @@ fetchGeminiModels: (apiKey) =>
   fetchGroqModels: (apiKey) =>
     ipcRenderer.invoke("fetch-groq-models", { apiKey }),
 
+    // Window Controls
+  minimizeWindow: () => ipcRenderer.invoke("minimize-window"),
+  maximizeWindow: () => ipcRenderer.invoke("maximize-window"),
+  closeWindow: () => ipcRenderer.invoke("close-window"),
 });

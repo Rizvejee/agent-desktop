@@ -127,11 +127,22 @@ export default function InputBar({ onSendMessage, onStopMessage, isThinking, dis
       </div>
 
       <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+    @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+    }
+  
+    /* Scrollbar مکمل طور پر چھپائیں — تمام browsers میں */
+    textarea::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    }
+    textarea {
+    -ms-overflow-style: none !important;  /* IE & Edge */
+    scrollbar-width: none !important;     /* Firefox */
+    }
+`  }</style>
     </div>
   );
 }
@@ -146,18 +157,21 @@ const styles = {
     background: "transparent",
   },
   textarea: {
-    flex: 1,
-    borderRadius: "14px",
-    padding: "12px 18px",
-    fontSize: "14px",
-    fontFamily: "'Segoe UI', 'Noto Nastaliq Urdu', Arial, sans-serif",
-    resize: "none",
-    minHeight: "46px",
-    maxHeight: "200px",
-    outline: "none",
-    lineHeight: "1.6",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-    transition: "box-shadow 0.2s",
+  flex: 1,
+  borderRadius: "12px",
+  padding: "11px 16px",
+  fontSize: "14px",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
+  resize: "none",
+  minHeight: "44px",
+  maxHeight: "160px",
+  outline: "none",
+  lineHeight: "1.6",
+  WebkitFontSmoothing: "antialiased",
+  MozOsxFontSmoothing: "grayscale",
+  overflow: "hidden", // ← نیا: scrollbar چھپائے
+  boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+  transition: "box-shadow 0.2s",
   },
   attachmentsList: {
     display: "flex",
@@ -176,17 +190,19 @@ const styles = {
     alignItems: "flex-end",
   },
   textarea: {
-    flex: 1,
-    borderRadius: "12px",
-    padding: "11px 16px",
-    fontSize: "14px",
-    fontFamily: "'Segoe UI', 'Noto Nastaliq Urdu', Arial, sans-serif",
-    resize: "none",
-    minHeight: "44px",
-    maxHeight: "160px",
-    outline: "none",
-    lineHeight: "1.6",
-  },
+  flex: 1,
+  borderRadius: "12px",
+  padding: "11px 16px",
+  fontSize: "14px",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
+  resize: "none",
+  minHeight: "44px",
+  maxHeight: "160px",
+  outline: "none",
+  lineHeight: "1.6",
+  WebkitFontSmoothing: "antialiased",
+  MozOsxFontSmoothing: "grayscale",
+},
   sendBtn: {
     borderRadius: "12px",
     cursor: "pointer",
