@@ -29,6 +29,11 @@ export default function InputBar({ onSendMessage, onStopMessage, isThinking, dis
     }
   }
 
+  function autoResize(e) {
+    e.target.style.height = "auto";
+    e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+  }
+
   // Send button کا content
   function renderSendBtn() {
     if (isThinking) {
@@ -44,12 +49,13 @@ export default function InputBar({ onSendMessage, onStopMessage, isThinking, dis
 
   return (
     <div
-      style={{
-        ...styles.container,
-        background: theme.bgCard,
-        borderTop: `1px solid ${theme.border}`,
-      }}
-    >
+       style={{
+       ...styles.container,
+       background: "transparent",
+       borderTop: "none",
+       padding: "8px 16px 14px",
+       }}
+       >
       {/* Attachments indicator */}
       {attachments && attachments.length > 0 && (
         <div style={styles.attachmentsList}>
@@ -70,25 +76,29 @@ export default function InputBar({ onSendMessage, onStopMessage, isThinking, dis
       )}
 
       <div style={styles.inputRow}>
-        <textarea
-          style={{
-            ...styles.textarea,
-            background: theme.bgInput,
-            border: `1px solid ${theme.border}`,
-            color: theme.textPrimary,
-            direction: "auto",
-          }}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={
-            disabled
-              ? "Select a project to start..."
-              : "Type your message... (Enter to send, Shift+Enter for new line)"
-          }
-          disabled={disabled}
-          rows={1}
-        />
+      <textarea
+    style={{
+    ...styles.textarea,
+    background: theme.bgCard,
+    border: `1px solid ${theme.border}`,
+    color: theme.textPrimary,
+    direction: "auto",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    }}
+    value={input}
+    onChange={(e) => {
+    setInput(e.target.value);
+    autoResize(e);
+    }}
+    onKeyDown={handleKeyDown}
+    placeholder={
+    disabled
+      ? "Select a project to start..."
+      : "Type your message... (Enter to send, Shift+Enter for new line)"
+    }
+    disabled={disabled}
+    rows={1}
+    />
 
         {/* Send / Stop button */}
         <button
@@ -128,11 +138,26 @@ export default function InputBar({ onSendMessage, onStopMessage, isThinking, dis
 
 const styles = {
   container: {
-    padding: "10px 16px 14px",
+    padding: "8px 16px 14px",
     display: "flex",
     flexDirection: "column",
     gap: "8px",
     flexShrink: 0,
+    background: "transparent",
+  },
+  textarea: {
+    flex: 1,
+    borderRadius: "14px",
+    padding: "12px 18px",
+    fontSize: "14px",
+    fontFamily: "'Segoe UI', 'Noto Nastaliq Urdu', Arial, sans-serif",
+    resize: "none",
+    minHeight: "46px",
+    maxHeight: "200px",
+    outline: "none",
+    lineHeight: "1.6",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    transition: "box-shadow 0.2s",
   },
   attachmentsList: {
     display: "flex",

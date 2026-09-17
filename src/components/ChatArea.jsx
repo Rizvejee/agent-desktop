@@ -130,19 +130,20 @@ export default function ChatArea({
     <div style={{ ...styles.container, background: theme.bgMain }}>
 
        {/* Header */}
-        <div
-        style={{
-        ...styles.header,
-        background: theme.bgCard,
-        borderBottom: `1px solid ${theme.border}`,
-        boxShadow: theme.shadow,
-        justifyContent: "center",
-        }}
-        >
-    <span style={{ ...styles.chatTitle, color: theme.textSecondary }}>
+       <div
+    style={{
+    ...styles.header,
+    background: "transparent",
+    borderBottom: "none",
+    boxShadow: "none",
+    justifyContent: "center",
+    padding: "14px 20px 8px",
+    }}
+    >
+  <span style={{ ...styles.chatTitle, color: theme.textPrimary }}>
     {activeChat.title}
-    </span>
-  </div>
+  </span>
+</div>
       {/* Messages */}
       <MessageList
         messages={activeChat.messages}
@@ -378,7 +379,8 @@ const styles = {
   },
 
   chatTitle: {
-    fontSize: "13px",
-    fontWeight: "500",
+    fontSize: "15px",
+    fontWeight: "600",
+    letterSpacing: "0.3px",
   },
 };

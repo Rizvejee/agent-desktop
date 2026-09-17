@@ -4,6 +4,7 @@ import { useTheme } from "../ThemeContext";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight, oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import ArtifactPreview from "./ArtifactPreview";
 
 function CodeBlock({ language, code, theme, mode }) {
   const [copied, setCopied] = useState(false);
@@ -110,6 +111,14 @@ function AgentMessage({ content, theme, mode }) {
             const language = match ? match[1] : "";
             const code = String(children).replace(/\n$/, "");
 
+            // HTML/CSS/JS کو ArtifactPreview میں دکھائیں
+            const artifactLanguages = ["html", "htm", "css", "js", "javascript"];
+            const isArtifact = !inline && artifactLanguages.includes(language.toLowerCase());
+
+            if (isArtifact) {
+              return <ArtifactPreview code={code} language={language} />;
+            }
+
             if (!inline && (match || code.includes("\n"))) {
               return (
                 <CodeBlock
@@ -120,7 +129,6 @@ function AgentMessage({ content, theme, mode }) {
                 />
               );
             }
-
             return (
               <code
                 style={{
@@ -135,6 +143,7 @@ function AgentMessage({ content, theme, mode }) {
               </code>
             );
           },
+
           // Paragraphs
           p({ children }) {
             return (
@@ -211,18 +220,47 @@ export default function MessageList({ messages, isThinking, toolStatuses, stream
       {messages.map((msg, index) => (
         <div key={index}>
           {msg.role === "user" && (
-            <div style={styles.userWrapper}>
-              <div
-                style={{
-                  ...styles.userCard,
-                  background: theme.msgUser,
-                  color: theme.msgUserText,
-                }}
-              >
-                <div style={styles.userContent}>{msg.content}</div>
-              </div>
-            </div>
-          )}
+  <div style={styles.userWrapper}>
+    <div
+      style={{
+        ...styles.userCard,
+        background: theme.msgUser,
+        color: theme.msgUserText,
+        position: "relative",
+      }}
+    >
+      <div style={styles.userContent}>{msg.content}</div>
+      <button
+        style={{
+          position: "absolute",
+          bottom: "6px",
+          right: "8px",
+          background: "rgba(255,255,255,0.2)",
+          border: "none",
+          borderRadius: "6px",
+          padding: "4px 8px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          fontSize: "11px",
+          color: "#fff",
+          opacity: 0,
+          transition: "opacity 0.2s",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
+        onClick={() => {
+          navigator.clipboard.writeText(msg.content);
+        }}
+        title="Copy message"
+      >
+        <Copy size={11} />
+        Copy
+      </button>
+    </div>
+  </div>
+)}
 
           {msg.role === "agent" && (
             <div style={styles.agentWrapper}>
@@ -244,19 +282,57 @@ export default function MessageList({ messages, isThinking, toolStatuses, stream
             </div>
           )}
 
-          {msg.role === "system" && (
-            <div style={styles.systemWrapper}>
-              <span
-                style={{
-                  ...styles.systemMsg,
-                  background: theme.successBg,
-                  color: theme.success,
-                }}
-              >
-                {msg.content}
-              </span>
-            </div>
-          )}
+{msg.role === "system" && (
+  <div style={styles.systemWrapper}>
+    <div
+      style={{
+        position: "relative",
+        display: "inline-block",
+      }}
+    >
+      <span
+        style={{
+          ...styles.systemMsg,
+          background: theme.errorBg,
+          color: theme.error,
+          display: "block",
+          padding: "8px 14px",
+          borderRadius: "8px",
+          fontSize: "12px",
+          lineHeight: "1.6",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          maxWidth: "500px",
+        }}
+      >
+        {msg.content}
+      </span>
+      <button
+        style={{
+          position: "absolute",
+          bottom: "4px",
+          right: "6px",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          padding: "2px",
+          color: theme.error,
+          opacity: 0.7,
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+        onClick={() => {
+          navigator.clipboard.writeText(msg.content);
+        }}
+        title="Copy error"
+      >
+        <Copy size={11} />
+      </button>
+    </div>
+  </div>
+)}
         </div>
       ))}
 
