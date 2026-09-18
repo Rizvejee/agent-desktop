@@ -10,8 +10,8 @@ import {
   User,
   MoreHorizontal,
   Edit2,
-  Terminal as TerminalIcon,
   FolderTree,
+  Eye,
 } from "lucide-react";
 import { useTheme } from "../ThemeContext";
 
@@ -148,10 +148,10 @@ export default function Sidebar({
   onRenameChat,
   onOpenSettings,
   showSettings,
-  onOpenTerminal,
-  showTerminal,
-  onOpenFiles,    // ← نیا
+  onOpenFiles,    
   showFiles,
+  onOpenPreview,    
+  showPreview, 
 }) {
   const { theme } = useTheme();
   const [showChats, setShowChats] = useState(true);
@@ -348,7 +348,9 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* Files Button */}
+      {/* ─── Bottom Action Buttons (Files + Terminal) ─── */}
+<div style={{ marginTop: "auto" }}> {/* ← یہ لائن دونوں کو نیچے لائے گی */}
+     {/* Files Button */}
 <div
   style={{
     padding: "6px 12px",
@@ -381,40 +383,33 @@ export default function Sidebar({
   </button>
 </div>
 
-
-      {/* Terminal Button */}
-      <div
-      style={{
-      padding: "6px 12px",
-      borderTop: `1px solid ${theme.border}`,
-      }}
-      >
-    <button
+      {/* Preview Button */}
+<div style={{ padding: "6px 12px" }}>
+  <button
     style={{
       ...styles.settingsBarBtn,
-      background: showTerminal ? theme.bgActive : "transparent",
-      color: showTerminal ? theme.accent : theme.textSecondary,
+      background: showPreview ? theme.bgActive : "transparent",
+      color: showPreview ? theme.accent : theme.textSecondary,
     }}
-    onClick={onOpenTerminal}
-    >
+    onClick={onOpenPreview}
+  >
     <div
       style={{
         width: "26px",
         height: "26px",
         borderRadius: "6px",
-        background: showTerminal ? theme.accentLight : theme.bgHover,
+        background: showPreview ? theme.accentLight : theme.bgHover,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         flexShrink: 0,
       }}
     >
-      <TerminalIcon size={13} color={showTerminal ? theme.accent : theme.textMuted} />
+      <Eye size={13} color={showPreview ? theme.accent : theme.textMuted} />
     </div>
-    <span style={styles.settingsBarLabel}>Terminal</span>
-    </button>
-    </div>
-
+    <span style={styles.settingsBarLabel}>Preview</span>
+  </button>
+</div>
       {/* Bottom Settings */}
       <div
         style={{
@@ -436,6 +431,7 @@ export default function Sidebar({
           <span style={styles.settingsBarLabel}>Rizwan</span>
           <Settings size={14} color={theme.textMuted} />
         </button>
+      </div>
       </div>
     </div>
   );

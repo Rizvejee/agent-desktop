@@ -4,7 +4,6 @@ import { useTheme } from "../ThemeContext";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight, oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import ArtifactPreview from "./ArtifactPreview";
 
 function CodeBlock({ language, code, theme, mode }) {
   const [copied, setCopied] = useState(false);

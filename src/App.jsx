@@ -7,8 +7,8 @@ import ProjectDashboard from "./pages/ProjectDashboard";
 import { useProjects } from "./hooks/useProjects";
 import { useChats } from "./hooks/useChats";
 import { useTheme } from "./ThemeContext";
-import Terminal from "./components/Terminal";
 import FileExplorer from "./components/FileExplorer";
+import PreviewPanel from "./components/PreviewPanel";
 
 export default function App() {
   const { theme, mode, toggleTheme } = useTheme();
@@ -36,9 +36,9 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
   const [toolStatuses, setToolStatuses] = useState([]);
-  const [showTerminal, setShowTerminal] = useState(false);
   const [showFiles, setShowFiles] = useState(false);
   const abortRef = useRef(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     window.electronAPI.onToolStatus((data) => {
@@ -179,14 +179,14 @@ export default function App() {
         />
       );
     }
-    if (showTerminal) {
-      return (
-        <Terminal
-          activeProject={activeProject}
-          onClose={() => setShowTerminal(false)}
-        />
-      );
-    }
+    if (showPreview) {
+    return (
+    <PreviewPanel
+    activeProject={activeProject}
+    onClose={() => setShowPreview(false)}
+    />
+     );
+     }
     if (showFiles) {
     return (
     <FileExplorer
@@ -287,23 +287,24 @@ export default function App() {
           onOpenSettings={() => {
             setShowSettings(true);
             setShowDashboard(false);
-            setShowFiles(false);   // ← نیا
+            setShowFiles(false);
+            setShowPreview(false);
           }}
           showSettings={showSettings}
-          onOpenTerminal={() => {
-            setShowTerminal(true);
-            setShowSettings(false);
-            setShowDashboard(false);
-            setShowFiles(false);   // ← نیا
-          }}
-          showTerminal={showTerminal}
           onOpenFiles={() => {     // ← نیا
           setShowFiles(true);
           setShowSettings(false);
           setShowDashboard(false);
-          setShowTerminal(false);
+          setShowPreview(false);
           }}
           showFiles={showFiles}    // ← نیا
+          onOpenPreview={() => {
+          setShowPreview(true);
+          setShowSettings(false);
+          setShowDashboard(false);
+          setShowFiles(false);
+          }}
+          showPreview={showPreview}
           />
         
 

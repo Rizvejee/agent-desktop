@@ -70,9 +70,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("chat-stream", (event, data) => callback(data)),
   removeChatStreamListener: () =>
     ipcRenderer.removeAllListeners("chat-stream"),
-  // Terminal
-  runTerminalCommand: (command, projectPath) =>
-    ipcRenderer.invoke("run-terminal-command", { command, projectPath }),
 
   // File Explorer
   listFilesTree: (projectPath) =>
