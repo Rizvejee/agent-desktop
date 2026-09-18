@@ -141,11 +141,11 @@ export default function App() {
     setIsThinking(true);
 
     const result = await window.electronAPI.sendMessage(
-      fullMessageWithKnowledge,
-      activeProject.path,
-      instructions
-    );
-
+    fullMessageWithKnowledge,
+    activeProject.path,
+    instructions,
+    activeProject.id  // ✅ نیا
+    );  
     if (abortRef.current) {
       setIsThinking(false);
       setStreamingContent("");

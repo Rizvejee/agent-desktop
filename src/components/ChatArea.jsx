@@ -37,7 +37,7 @@ export default function ChatArea({
 
   async function saveInstructions() {
     await window.electronAPI.saveInstructions(activeProject.id, instructions);
-    await window.electronAPI.resetAgent(activeProject.path);
+    await window.electronAPI.resetAgent(activeProject.path, activeProject.id);
     setSavedInstructions(instructions);
     setIsEditingInstructions(false);
   }

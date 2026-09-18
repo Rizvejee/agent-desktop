@@ -30,7 +30,7 @@ export function useProjects() {
     setProjects(updated);
     setActiveProject(newProject);
     await window.electronAPI.saveProjects(updated);
-    await window.electronAPI.resetAgent(newProject.path);
+    await window.electronAPI.resetAgent(newProject.path, newProject.id);
 
     return newProject;
   }

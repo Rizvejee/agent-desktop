@@ -91,62 +91,53 @@ let runningProcessCommand = "";
 // ─── Agent ───────────────────────────────────────────────
 let agentInstance = null;
 
-function getAgent(projectPath) {
+function getAgent(projectPath, projectId) {
   if (!agentInstance || agentInstance.projectPath !== projectPath) {
     const Agent = require("../agent-src/agent");
-    agentInstance = new Agent(projectPath);
-
-    // Settings سے provider اور model لوڈ کریں
+    
+    // ✅ پروجیکٹ-اسپیسفک میموری فولڈر
+    const projectMemoryPath = projectId 
+      ? path.join(MEMORY_PATH, projectId) 
+      : path.join(__dirname, "../memory");
+    
+    if (!fs.existsSync(projectMemoryPath)) {
+      fs.mkdirSync(projectMemoryPath, { recursive: true });
+    }
+    
+    agentInstance = new Agent(projectPath, projectMemoryPath);
+    
+    // Settings لوڈ کریں
     if (fs.existsSync(SETTINGS_FILE)) {
-      try {
-        const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf-8"));
-        const ModelClient = require("../agent-src/modelClient");
-        const provider = settings.provider || "groq";
-        let config = {};
-
-        switch (provider) {
-          case "groq":
-            config = {
-              apiKey: settings.groqApiKey || process.env.GROQ_API_KEY,
-              model: settings.groqModel || "openai/gpt-oss-120b",
-            };
-            break;
-          case "gemini":
-            config = {
-              apiKey: settings.geminiApiKey || process.env.GEMINI_API_KEY,
-              model: settings.geminiModel || "gemini-2.0-flash",
-            };
-            break;
-          case "ollama":
-            config = {
-              baseURL: settings.ollamaUrl || "http://localhost:11434/v1",
-              model: settings.ollamaModel || "llama3.2",
-            };
-            break;
-        }
-
-        // ✅ CHECK: API key موجود ہے یا نہیں
-        if (provider !== "ollama" && !config.apiKey) {
-          console.warn(`⚠️  No API key found for ${provider}!`);
-          console.warn(`   Settings file: ${SETTINGS_FILE}`);
-          console.warn(`   Settings content:`, JSON.stringify(settings, null, 2));
-        } else {
-          console.log(`✅ Using ${provider} with model: ${config.model}`);
-        }
-
-        agentInstance.modelClient = new ModelClient(provider, config);
-
-        // Agent settings apply کریں
-        if (settings.agentSettings) {
-          agentInstance.systemPrompt = agentInstance.buildSystemPrompt(
-            settings.agentSettings
-          );
-        }
-      } catch (error) {
-        console.error("❌ Error loading settings:", error);
+      const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf-8"));
+      const ModelClient = require("../agent-src/modelClient");
+      const provider = settings.provider || "groq";
+      let config = {};
+      switch (provider) {
+        case "groq":
+          config = {
+            apiKey: settings.groqApiKey || process.env.GROQ_API_KEY,
+            model: settings.groqModel || "openai/gpt-oss-120b",
+          };
+          break;
+        case "gemini":
+          config = {
+            apiKey: settings.geminiApiKey || process.env.GEMINI_API_KEY,
+            model: settings.geminiModel || "gemini-2.0-flash",
+          };
+          break;
+        case "ollama":
+          config = {
+            baseURL: settings.ollamaUrl || "http://localhost:11434/v1",
+            model: settings.ollamaModel || "llama3.2",
+          };
+          break;
       }
-    } else {
-      console.warn(`⚠️  Settings file not found: ${SETTINGS_FILE}`);
+      agentInstance.modelClient = new ModelClient(provider, config);
+      if (settings.agentSettings) {
+        agentInstance.systemPrompt = agentInstance.buildSystemPrompt(
+          settings.agentSettings
+        );
+      }
     }
   }
   return agentInstance;
@@ -168,9 +159,9 @@ function getChatsDir(projectId) {
 }
 
 // ─── IPC: Agent ──────────────────────────────────────────
-ipcMain.handle("chat-message", async (event, { message, projectPath, instructions }) => {
+ipcMain.handle("chat-message", async (event, { message, projectPath, instructions, projectId }) => {
   try {
-    const agent = getAgent(projectPath);
+    const agent = getAgent(projectPath, projectId);
 
     if (instructions && instructions.trim()) {
       agent.systemPrompt = agent.systemPrompt.replace(
@@ -237,7 +228,7 @@ ipcMain.handle("list-files", async (event, { projectPath, subPath }) => {
   }
 });
 
-ipcMain.handle("reset-agent", async (event, { projectPath }) => {
+ipcMain.handle("reset-agent", async (event, { projectPath, projectId }) => {
   agentInstance = null;
   return { success: true };
 });
@@ -433,32 +424,42 @@ ipcMain.handle("delete-knowledge-file", async (event, { projectId, fileName }) =
 // ─── IPC: Project Memory ──────────────────────────────────
 ipcMain.handle("get-project-memory", async (event, { projectId }) => {
   try {
-    const memoryFile = path.join(
-      __dirname,
-      "../memory/agent-memory.json"
-    );
+    // ✅ اب یہ پروجیکٹ کی اپنی میموری فائل استعمال کرے گا
+    const memoryFile = path.join(getProjectDir(projectId), "agent-memory.json");
+    
     if (!fs.existsSync(memoryFile)) {
-      return { success: true, memory: "" };
+      return { 
+        success: true, 
+        memory: "", 
+        data: { preferences: [], projectDecisions: [], completedTasks: [], notes: [] } 
+      };
     }
+    
     const data = JSON.parse(fs.readFileSync(memoryFile, "utf-8"));
     const lines = [];
+    
     if (data.preferences?.length > 0) {
       lines.push("PREFERENCES:");
-      data.preferences.forEach((p) => lines.push(`  - ${p}`));
+      data.preferences.forEach((p) => lines.push(`- ${p}`));
     }
     if (data.projectDecisions?.length > 0) {
       lines.push("\nPROJECT DECISIONS:");
-      data.projectDecisions.forEach((d) => lines.push(`  - ${d}`));
+      data.projectDecisions.forEach((d) => lines.push(`- ${d}`));
     }
     if (data.completedTasks?.length > 0) {
       lines.push("\nCOMPLETED TASKS:");
-      data.completedTasks.forEach((t) => lines.push(`  - ${t}`));
+      data.completedTasks.forEach((t) => lines.push(`- ${t}`));
     }
     if (data.notes?.length > 0) {
       lines.push("\nNOTES:");
-      data.notes.forEach((n) => lines.push(`  - ${n}`));
+      data.notes.forEach((n) => lines.push(`- ${n}`));
     }
-    return { success: true, memory: lines.join("\n") };
+    
+    return { 
+      success: true, 
+      memory: lines.join("\n"),
+      data: data // ✅ UI میں structured ڈیٹا دکھانے کے لیے
+    };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -643,6 +644,46 @@ ipcMain.handle("read-file", async (event, { filePath }) => {
     }
     const content = fs.readFileSync(filePath, "utf-8");
     return { success: true, content };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ── IPC: Add Project Memory ─────────────────────────────
+ipcMain.handle("add-project-memory", async (event, { projectId, category, item }) => {
+  try {
+    const memoryDir = path.join(MEMORY_PATH, projectId);
+    if (!fs.existsSync(memoryDir)) fs.mkdirSync(memoryDir, { recursive: true });
+    const memoryFile = path.join(memoryDir, "agent-memory.json");
+    
+    let data = { preferences: [], projectDecisions: [], completedTasks: [], notes: [] };
+    if (fs.existsSync(memoryFile)) {
+      data = JSON.parse(fs.readFileSync(memoryFile, "utf-8"));
+    }
+    if (!data[category]) data[category] = [];
+    if (!data[category].includes(item)) {
+      data[category].push(item);
+      fs.writeFileSync(memoryFile, JSON.stringify(data, null, 2), "utf-8");
+    }
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ─── IPC: Remove Project Memory ──────────────────────────
+ipcMain.handle("remove-project-memory", async (event, { projectId, category, item }) => {
+  try {
+    const memoryFile = path.join(MEMORY_PATH, projectId, "agent-memory.json");
+    if (!fs.existsSync(memoryFile)) {
+      return { success: false, error: "Memory file not found" };
+    }
+    let data = JSON.parse(fs.readFileSync(memoryFile, "utf-8"));
+    if (data[category]) {
+      data[category] = data[category].filter((i) => i !== item);
+      fs.writeFileSync(memoryFile, JSON.stringify(data, null, 2), "utf-8");
+    }
+    return { success: true, data };
   } catch (error) {
     return { success: false, error: error.message };
   }

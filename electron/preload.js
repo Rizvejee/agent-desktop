@@ -2,12 +2,12 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electronAPI", {
   // Agent
-  sendMessage: (message, projectPath, instructions) =>
-    ipcRenderer.invoke("chat-message", { message, projectPath, instructions }),
+  sendMessage: (message, projectPath, instructions, projectId) =>
+  ipcRenderer.invoke("chat-message", { message, projectPath, instructions, projectId }),
   listFiles: (projectPath, subPath) =>
     ipcRenderer.invoke("list-files", { projectPath, subPath }),
-  resetAgent: (projectPath) =>
-    ipcRenderer.invoke("reset-agent", { projectPath }),
+  resetAgent: (projectPath, projectId) =>
+  ipcRenderer.invoke("reset-agent", { projectPath, projectId }),
 
   // Folder picker
   selectFolder: () =>
@@ -57,6 +57,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   deleteKnowledgeFile: (projectId, fileName) =>
   ipcRenderer.invoke("delete-knowledge-file", { projectId, fileName }),
 
+  // Project Memory - Add/Remove
+  addProjectMemory: (projectId, category, item) =>
+  ipcRenderer.invoke("add-project-memory", { projectId, category, item }),
+  removeProjectMemory: (projectId, category, item) =>
+  ipcRenderer.invoke("remove-project-memory", { projectId, category, item }),
+
    // Project Memory
   getProjectMemory: (projectId) =>
   ipcRenderer.invoke("get-project-memory", { projectId }),
@@ -92,4 +98,8 @@ fetchGeminiModels: (apiKey) =>
   minimizeWindow: () => ipcRenderer.invoke("minimize-window"),
   maximizeWindow: () => ipcRenderer.invoke("maximize-window"),
   closeWindow: () => ipcRenderer.invoke("close-window"),
+
+    // Read file (Auto-Detect Port کے لیے)
+  readFile: (filePath) =>
+    ipcRenderer.invoke("read-file", { filePath }),
 });

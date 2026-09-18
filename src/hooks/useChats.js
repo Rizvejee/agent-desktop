@@ -53,7 +53,7 @@ export function useChats(activeProject) {
     setChats((prev) => [chat, ...prev]);
     setActiveChat(chat);
     await window.electronAPI.saveChat(projectId, chat);
-    await window.electronAPI.resetAgent(activeProject.path);
+    await window.electronAPI.resetAgent(activeProject.path, activeProject.id);
   }
 
   async function deleteChat(projectId, chatId) {

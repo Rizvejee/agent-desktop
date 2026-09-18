@@ -7,87 +7,57 @@ const Memory = require("./memory");
 const path = require("path");
 
 class Agent {
-  constructor(projectPath) {
-    this.modelClient = new ModelClient();
-    this.fileSystem = new FileSystem(projectPath);
-    this.terminal = new Terminal(projectPath);
-    this.projectContext = new ProjectContext(projectPath);
-    this.toolHandler = new ToolHandler(projectPath);
-    this.memory = new Memory(path.join(__dirname, "../memory"));
-    this.projectPath = projectPath;
-    this.conversationHistory = [];
-
-    // settings سے system prompt بنائیں
+  constructor(projectPath, memoryPath) {
+  this.modelClient = new ModelClient();
+  this.fileSystem = new FileSystem(projectPath);
+  this.terminal = new Terminal(projectPath);
+  this.projectContext = new ProjectContext(projectPath);
+  this.toolHandler = new ToolHandler(projectPath);
+  // ✅ پروجیکٹ-اسپیسفک میموری پاتھ
+  this.memory = new Memory(memoryPath || path.join(__dirname, "../memory"));
+  this.projectPath = projectPath;
+  this.conversationHistory = [];
+  this.agentSettings = {}; // ✅ سیٹنگز محفوظ کریں
   this.systemPrompt = this.buildSystemPrompt();
   }
     buildSystemPrompt(agentSettings = {}) {
-      const name = agentSettings.name || "Coder";
-      const role = agentSettings.role || "Personal AI Coding Assistant";
-      const language = agentSettings.language || "English";
-      const rules = agentSettings.rules || `Always write clean, readable and reusable code.
-    Follow DRY principles and existing project architecture.
-    Do not add unnecessary dependencies.
-    Keep explanations concise.`;
-
-      // technologies
-      const technologies = agentSettings.technologies || [
-        "React",
-        "React Native",
-        "Next.js",
-        "Expo",
-        "JavaScript",
-        "HTML",
-        "CSS",
-      ];
-
-      const context = this.projectContext.getContextString();
-      const memoryStr = this.memory.getMemoryString();
-
-      return `You are ${name}, a ${role}.
-    You communicate in ${language} only.
-    You are an expert in: ${technologies.join(", ")}.
-    You have access to tools to read and write project files.
-
-    RULES:
-    ${rules}
-
-    When asked to create or modify code:
-    1. First use list_files or read_file to understand the project
-    2. Then write the code using write_file tool
-    3. Finally explain what you did and which files were changed
-
-    MEMORY (things to always remember):
-    ${memoryStr}
-
-    PROJECT CONTEXT:
-    ${context}`;
-    }
-
-  // memory refresh کریں
-  refreshSystemPrompt() {
-    const context = this.projectContext.getContextString();
-    const memoryStr = this.memory.getMemoryString();
-
-    this.systemPrompt = `You are a personal AI Coding Assistant named "Coder".
-You communicate in English only.
-You are an expert in React, Next.js, React Native, Expo, JavaScript, HTML and CSS.
-You have access to tools to read and write project files.
-Always write clean, readable and reusable code.
+  // ✅ سیٹنگز محفوظ کریں تاکہ refresh میں استعمال ہو سکیں
+  this.agentSettings = agentSettings;
+  
+  const name = agentSettings.name || "Coder";
+  const role = agentSettings.role || "Personal AI Coding Assistant";
+  const language = agentSettings.language || "English";
+  const rules = agentSettings.rules || `Always write clean, readable and reusable code.
 Follow DRY principles and existing project architecture.
 Do not add unnecessary dependencies.
-Keep explanations concise.
-
+Keep explanations concise.`;
+  const technologies = agentSettings.technologies || [
+    "React", "React Native", "Next.js", "Expo",
+    "JavaScript", "HTML", "CSS",
+  ];
+  const context = this.projectContext.getContextString();
+  const memoryStr = this.memory.getMemoryString();
+  return `You are ${name}, a ${role}.
+You communicate in ${language} only.
+You are an expert in: ${technologies.join(", ")}.
+You have access to tools to read and write project files.
+RULES:
+${rules}
 When asked to create or modify code:
 1. First use list_files or read_file to understand the project
 2. Then write the code using write_file tool
 3. Finally explain what you did and which files were changed
-
 MEMORY (things to always remember):
 ${memoryStr}
-
 PROJECT CONTEXT:
 ${context}`;
-  }
+}
+
+  // memory refresh کریں
+  refreshSystemPrompt() {
+  // ✅ اب یہ صرف buildSystemPrompt کو کال کرے گا — کوئی hardcoded نہیں
+  this.systemPrompt = this.buildSystemPrompt(this.agentSettings);
+}
 
   async chat(userMessage, onChunk = null) {
     this.conversationHistory.push({
