@@ -71,6 +71,20 @@ class ToolHandler {
         },
       },
       {
+       name: "delete_file",
+       description: "Permanently delete a file from the project directory",
+       input_schema: {
+       type: "object",
+       properties: {
+       file_path: {
+        type: "string",
+        description: "Path to the file relative to project root. Example: src/old-component.js",
+      },
+      },
+       required: ["file_path"],
+      },
+    },
+      {
         name: "run_command",
         description: "Run an allowed terminal command in the project directory",
         input_schema: {
@@ -118,6 +132,12 @@ class ToolHandler {
         const results = this.fileSystem.searchFiles(toolInput.search_term);
         console.log(`🔍 Searching: ${toolInput.search_term}`);
         return results;
+      }
+
+      case "delete_file": {
+      console.log(`🗑️ Deleting: ${toolInput.file_path}`);
+      const result = this.fileSystem.deleteFile(toolInput.file_path);
+      return result;
       }
 
       case "run_command": {
