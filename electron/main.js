@@ -92,54 +92,63 @@ let runningProcessCommand = "";
 let agentInstance = null;
 
 function getAgent(projectPath, projectId) {
-  if (!agentInstance || agentInstance.projectPath !== projectPath) {
-    const Agent = require("../agent-src/agent");
-    
-    // ✅ پروجیکٹ-اسپیسفک میموری فولڈر
-    const projectMemoryPath = projectId 
-      ? path.join(MEMORY_PATH, projectId) 
-      : path.join(__dirname, "../memory");
-    
-    if (!fs.existsSync(projectMemoryPath)) {
-      fs.mkdirSync(projectMemoryPath, { recursive: true });
-    }
-    
-    agentInstance = new Agent(projectPath, projectMemoryPath);
-    
-    // Settings لوڈ کریں
-    if (fs.existsSync(SETTINGS_FILE)) {
+  const Agent = require("../agent-src/agent");
+  const ModelClient = require("../agent-src/modelClient");
+
+  // Project-specific memory path
+  const projectMemoryPath = projectId
+    ? path.join(MEMORY_PATH, projectId)
+    : path.join(__dirname, "../memory");
+
+  if (!fs.existsSync(projectMemoryPath)) {
+    fs.mkdirSync(projectMemoryPath, { recursive: true });
+  }
+
+  // ہمیشہ نیا agent بنائیں تاکہ تازہ settings لوڈ ہوں
+  agentInstance = new Agent(projectPath, projectMemoryPath);
+
+  // Settings لوڈ کریں
+  if (fs.existsSync(SETTINGS_FILE)) {
+    try {
       const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf-8"));
-      const ModelClient = require("../agent-src/modelClient");
       const provider = settings.provider || "groq";
       let config = {};
+
       switch (provider) {
         case "groq":
           config = {
             apiKey: settings.groqApiKey || process.env.GROQ_API_KEY,
-            model: settings.groqModel || "openai/gpt-oss-120b",
+            model: settings.groqModel || "llama-3.3-70b-versatile"
           };
           break;
         case "gemini":
           config = {
             apiKey: settings.geminiApiKey || process.env.GEMINI_API_KEY,
-            model: settings.geminiModel || "gemini-2.0-flash",
+            model: settings.geminiModel || "gemini-1.5-flash"
           };
           break;
         case "ollama":
           config = {
             baseURL: settings.ollamaUrl || "http://localhost:11434/v1",
-            model: settings.ollamaModel || "llama3.2",
+            model: settings.ollamaModel || "llama3.2"
           };
           break;
       }
+
       agentInstance.modelClient = new ModelClient(provider, config);
+
       if (settings.agentSettings) {
-        agentInstance.systemPrompt = agentInstance.buildSystemPrompt(
-          settings.agentSettings
-        );
+        agentInstance.systemPrompt = agentInstance.buildSystemPrompt(settings.agentSettings);
       }
+
+      console.log(`✅ Agent initialized with provider: ${provider}, model: ${config.model}`);
+    } catch (error) {
+      console.error("❌ Error loading settings:", error);
     }
+  } else {
+    console.warn("⚠️ Settings file not found. Using defaults.");
   }
+
   return agentInstance;
 }
 
@@ -426,18 +435,18 @@ ipcMain.handle("get-project-memory", async (event, { projectId }) => {
   try {
     // ✅ اب یہ پروجیکٹ کی اپنی میموری فائل استعمال کرے گا
     const memoryFile = path.join(getProjectDir(projectId), "agent-memory.json");
-    
+
     if (!fs.existsSync(memoryFile)) {
-      return { 
-        success: true, 
-        memory: "", 
-        data: { preferences: [], projectDecisions: [], completedTasks: [], notes: [] } 
+      return {
+        success: true,
+        memory: "",
+        data: { preferences: [], projectDecisions: [], completedTasks: [], notes: [] }
       };
     }
-    
+
     const data = JSON.parse(fs.readFileSync(memoryFile, "utf-8"));
     const lines = [];
-    
+
     if (data.preferences?.length > 0) {
       lines.push("PREFERENCES:");
       data.preferences.forEach((p) => lines.push(`- ${p}`));
@@ -454,9 +463,9 @@ ipcMain.handle("get-project-memory", async (event, { projectId }) => {
       lines.push("\nNOTES:");
       data.notes.forEach((n) => lines.push(`- ${n}`));
     }
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       memory: lines.join("\n"),
       data: data // ✅ UI میں structured ڈیٹا دکھانے کے لیے
     };
@@ -655,7 +664,7 @@ ipcMain.handle("add-project-memory", async (event, { projectId, category, item }
     const memoryDir = path.join(MEMORY_PATH, projectId);
     if (!fs.existsSync(memoryDir)) fs.mkdirSync(memoryDir, { recursive: true });
     const memoryFile = path.join(memoryDir, "agent-memory.json");
-    
+
     let data = { preferences: [], projectDecisions: [], completedTasks: [], notes: [] };
     if (fs.existsSync(memoryFile)) {
       data = JSON.parse(fs.readFileSync(memoryFile, "utf-8"));

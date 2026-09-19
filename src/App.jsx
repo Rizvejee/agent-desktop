@@ -100,69 +100,51 @@ export default function App() {
 
   async function handleSendMessage(fullMessage, displayMessage) {
     if (!activeChat || !activeProject) return;
-
     abortRef.current = false;
     setToolStatuses([]);
     setStreamingContent("");
 
-    const instrResult = await window.electronAPI.getInstructions(
-      activeProject.id
-    );
+    // Instructions ہمیشہ load کریں
+    const instrResult = await window.electronAPI.getInstructions(activeProject.id);
     const instructions = instrResult.success ? instrResult.instructions : "";
 
-    const knowledgeResult = await window.electronAPI.getKnowledgeFiles(
-      activeProject.id
-    );
+    // ✅ KNOWLEDGE FILES: صرف پہلے میسج میں (ٹوکنز کی بچت)
     let knowledgeContext = "";
-    if (knowledgeResult.success && knowledgeResult.files.length > 0) {
-      knowledgeContext =
-        "\n\nKNOWLEDGE FILES:\n" +
-        knowledgeResult.files
-          .map((f) => `--- ${f.name} ---\n${f.content}`)
-          .join("\n\n");
+    const isFirstMessage = activeChat.messages.length <= 1;
+
+    if (isFirstMessage) {
+      const knowledgeResult = await window.electronAPI.getKnowledgeFiles(activeProject.id);
+      if (knowledgeResult.success && knowledgeResult.files.length > 0) {
+        knowledgeContext = "\n\nPROJECT BLUEPRINT (Reference only):\n" +
+          knowledgeResult.files.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n");
+      }
     }
 
     const fullMessageWithKnowledge = fullMessage + knowledgeContext;
 
     const updatedChat = {
       ...activeChat,
-      messages: [
-        ...activeChat.messages,
-        { role: "user", content: displayMessage },
-      ],
-      title:
-        activeChat.title === "New Chat"
-          ? displayMessage.slice(0, 30)
-          : activeChat.title,
+      messages: [...activeChat.messages, { role: "user", content: displayMessage }],
+      title: activeChat.title === "New Chat" ? displayMessage.slice(0, 30) : activeChat.title,
       updatedAt: Date.now(),
     };
-
     await updateChat(activeProject.id, updatedChat);
     setIsThinking(true);
 
     const result = await window.electronAPI.sendMessage(
-    fullMessageWithKnowledge,
-    activeProject.path,
-    instructions,
-    activeProject.id  // ✅ نیا
-    );  
-    if (abortRef.current) {
-      setIsThinking(false);
-      setStreamingContent("");
-      return;
-    }
+      fullMessageWithKnowledge,
+      activeProject.path,
+      instructions,
+      activeProject.id
+    );
+
+    if (abortRef.current) { setIsThinking(false); setStreamingContent(""); return; }
 
     const agentMessage = {
       role: result.success ? "agent" : "system",
       content: result.success ? result.response : `Error: ${result.error}`,
     };
-
-    const finalChat = {
-      ...updatedChat,
-      messages: [...updatedChat.messages, agentMessage],
-      updatedAt: Date.now(),
-    };
-
+    const finalChat = { ...updatedChat, messages: [...updatedChat.messages, agentMessage], updatedAt: Date.now() };
     await updateChat(activeProject.id, finalChat);
     setIsThinking(false);
     setStreamingContent("");
@@ -232,12 +214,12 @@ export default function App() {
     <Bot size={20} color={theme.accent} />
     <span style={{ ...styles.headerTitle, color: theme.textPrimary }}>My Coding Agent</span>
   </div>
-  
+
   <div style={{ ...styles.headerRight, WebkitAppRegion: "no-drag" }}>
     {activeProject && !showSettings && !showDashboard && (
       <span style={{ ...styles.headerStatus, color: theme.success, background: theme.successBg }}>● Online</span>
     )}
-    
+
     {/* Theme Toggle */}
     <button style={{ ...styles.themeToggle, background: theme.bgHover, color: theme.textSecondary }} onClick={() => toggleTheme(mode === "light" ? "dark" : "light")} title="Toggle theme">
       {mode === "light" ? <Moon size={15} /> : <Sun size={15} />}
@@ -245,23 +227,23 @@ export default function App() {
 
     {/* Window Controls */}
     <div style={{ display: "flex", gap: "4px", marginLeft: "12px" }}>
-      <button 
-        style={{ ...styles.windowBtn, background: "transparent", color: theme.textMuted }} 
-        onClick={() => window.electronAPI.minimizeWindow()} 
+      <button
+        style={{ ...styles.windowBtn, background: "transparent", color: theme.textMuted }}
+        onClick={() => window.electronAPI.minimizeWindow()}
         title="Minimize"
       >
         <Minus size={14} />
       </button>
-      <button 
-        style={{ ...styles.windowBtn, background: "transparent", color: theme.textMuted }} 
-        onClick={() => window.electronAPI.maximizeWindow()} 
+      <button
+        style={{ ...styles.windowBtn, background: "transparent", color: theme.textMuted }}
+        onClick={() => window.electronAPI.maximizeWindow()}
         title="Maximize/Restore"
       >
         <Maximize2 size={14} />
       </button>
-      <button 
-        style={{ ...styles.windowBtn, background: "transparent", color: theme.textMuted }} 
-        onClick={() => window.electronAPI.closeWindow()} 
+      <button
+        style={{ ...styles.windowBtn, background: "transparent", color: theme.textMuted }}
+        onClick={() => window.electronAPI.closeWindow()}
         title="Close"
         onMouseEnter={(e) => { e.currentTarget.style.background = "#ef4444"; e.currentTarget.style.color = "#fff"; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = theme.textMuted; }}
@@ -306,7 +288,7 @@ export default function App() {
           }}
           showPreview={showPreview}
           />
-        
+
 
         {renderMainArea()}
       </div>
