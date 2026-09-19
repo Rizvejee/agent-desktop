@@ -29,6 +29,10 @@ class Agent {
   const language = agentSettings.language || "English";
   const rules = agentSettings.rules || `Always write clean, readable and reusable code.
 Follow DRY principles and existing project architecture.
+Always create a JSX file for the component & pages that contains everything; do not keep the JS and CSS files separate.
+I will give you instructions in Urdu, 
+but you have to use English wherever you create the button card or anything else in the project. 
+Use English everywhere in the project.
 Do not add unnecessary dependencies.
 Keep explanations concise.`;
   const technologies = agentSettings.technologies || [
