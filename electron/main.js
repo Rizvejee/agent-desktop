@@ -867,3 +867,167 @@ ipcMain.handle("maximize-window", () => {
 ipcMain.handle("close-window", () => {
   if (mainWindow) mainWindow.close();
 });
+
+// ═══════════════════════════════════════════════════════
+// 🆕 IPC: File Operations (VS Code style)
+// ═══════════════════════════════════════════════════════
+
+// ─── Rename File/Folder ───────────────────────────────
+ipcMain.handle("rename-file", async (event, { projectPath, oldPath, newName }) => {
+  try {
+    const fullOldPath = path.join(projectPath, oldPath);
+    const parentDir = path.dirname(fullOldPath);
+    const fullNewPath = path.join(parentDir, newName);
+
+    // ✅ Security: project کے باہر نہ جائے
+    const resolvedOld = path.resolve(fullOldPath);
+    const resolvedNew = path.resolve(fullNewPath);
+    const resolvedProject = path.resolve(projectPath);
+    
+    if (!resolvedOld.startsWith(resolvedProject) || 
+        !resolvedNew.startsWith(resolvedProject)) {
+      return { success: false, error: "Access denied: path escapes project" };
+    }
+
+    // ✅ Check: نیا نام پہلے سے موجود تو نہیں
+    if (fs.existsSync(fullNewPath)) {
+      return { success: false, error: `A file/folder named "${newName}" already exists` };
+    }
+
+    // ✅ Check: پرانی فائل موجود ہے؟
+    if (!fs.existsSync(fullOldPath)) {
+      return { success: false, error: "File/folder not found" };
+    }
+
+    // ✅ Rename کریں
+    fs.renameSync(fullOldPath, fullNewPath);
+    return { success: true, newPath: path.relative(projectPath, fullNewPath) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ─── Delete File or Folder ────────────────────────────
+ipcMain.handle("delete-file-or-folder", async (event, { projectPath, filePath }) => {
+  try {
+    const fullPath = path.join(projectPath, filePath);
+    
+    // ✅ Security: project کے باہر نہ جائے
+    const resolved = path.resolve(fullPath);
+    const resolvedProject = path.resolve(projectPath);
+    
+    if (!resolved.startsWith(resolvedProject)) {
+      return { success: false, error: "Access denied: path escapes project" };
+    }
+
+    // ✅ Safety: node_modules یا project root delete نہ ہو
+    const relativePath = path.relative(projectPath, fullPath);
+    if (relativePath === "" || 
+        relativePath === "node_modules" || 
+        relativePath.startsWith("node_modules" + path.sep)) {
+      return { success: false, error: "Cannot delete critical path" };
+    }
+
+    if (!fs.existsSync(fullPath)) {
+      return { success: false, error: "File/folder not found" };
+    }
+
+    const stat = fs.statSync(fullPath);
+    if (stat.isDirectory()) {
+      // فولڈر کو recursive delete کریں
+      fs.rmSync(fullPath, { recursive: true, force: true });
+    } else {
+      fs.unlinkSync(fullPath);
+    }
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ─── Create New File ──────────────────────────────────
+ipcMain.handle("create-new-file", async (event, { projectPath, filePath, content = "" }) => {
+  try {
+    const fullPath = path.join(projectPath, filePath);
+    
+    // ✅ Security
+    const resolved = path.resolve(fullPath);
+    const resolvedProject = path.resolve(projectPath);
+    
+    if (!resolved.startsWith(resolvedProject)) {
+      return { success: false, error: "Access denied" };
+    }
+
+    // ✅ Check: فائل پہلے سے موجود تو نہیں
+    if (fs.existsSync(fullPath)) {
+      return { success: false, error: "File already exists" };
+    }
+
+    // ✅ Folder نہ ہو تو بنائیں
+    const dir = path.dirname(fullPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    fs.writeFileSync(fullPath, content, "utf-8");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ─── Create New Folder ────────────────────────────────
+ipcMain.handle("create-new-folder", async (event, { projectPath, folderPath }) => {
+  try {
+    const fullPath = path.join(projectPath, folderPath);
+    
+    // ✅ Security
+    const resolved = path.resolve(fullPath);
+    const resolvedProject = path.resolve(projectPath);
+    
+    if (!resolved.startsWith(resolvedProject)) {
+      return { success: false, error: "Access denied" };
+    }
+
+    // ✅ Check: فولڈر پہلے سے موجود تو نہیں
+    if (fs.existsSync(fullPath)) {
+      return { success: false, error: "Folder already exists" };
+    }
+
+    fs.mkdirSync(fullPath, { recursive: true });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ─── Save File Content (Edit mode کے لیے) ─────────────
+ipcMain.handle("save-file-content", async (event, { projectPath, filePath, content }) => {
+  try {
+    const fullPath = path.join(projectPath, filePath);
+    
+    // ✅ Security
+    const resolved = path.resolve(fullPath);
+    const resolvedProject = path.resolve(projectPath);
+    
+    if (!resolved.startsWith(resolvedProject)) {
+      return { success: false, error: "Access denied" };
+    }
+
+    // ✅ Check: فائل موجود ہے؟
+    if (!fs.existsSync(fullPath)) {
+      return { success: false, error: "File not found" };
+    }
+
+    // ✅ Size check (5MB limit)
+    if (content.length > 5 * 1024 * 1024) {
+      return { success: false, error: "File too large (max 5MB)" };
+    }
+
+    fs.writeFileSync(fullPath, content, "utf-8");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});

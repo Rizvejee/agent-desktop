@@ -94,6 +94,24 @@ contextBridge.exposeInMainWorld("electronAPI", {
   readFileContent: (projectPath, filePath) =>
     ipcRenderer.invoke("read-file-content", { projectPath, filePath }),
 
+    // ═══════════════════════════════════════════════════════
+  // 🆕 File Operations (VS Code style)
+  // ═══════════════════════════════════════════════════════
+  renameFile: (projectPath, oldPath, newName) =>
+    ipcRenderer.invoke("rename-file", { projectPath, oldPath, newName }),
+  
+  deleteFileOrFolder: (projectPath, filePath) =>
+    ipcRenderer.invoke("delete-file-or-folder", { projectPath, filePath }),
+  
+  createNewFile: (projectPath, filePath, content = "") =>
+    ipcRenderer.invoke("create-new-file", { projectPath, filePath, content }),
+  
+  createNewFolder: (projectPath, folderPath) =>
+    ipcRenderer.invoke("create-new-folder", { projectPath, folderPath }),
+  
+  saveFileContent: (projectPath, filePath, content) =>
+    ipcRenderer.invoke("save-file-content", { projectPath, filePath, content }),
+
   // ✅ Read file (for port detection etc.)
   readFile: (filePath) =>
     ipcRenderer.invoke("read-file", { filePath }),
