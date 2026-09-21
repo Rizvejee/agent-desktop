@@ -1,170 +1,289 @@
 const fs = require("fs");
 const path = require("path");
 
+// ═══════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════
+const MAX_DEPTH = 3;              // Directory tree کی زیادہ سے زیادہ depth
+const MAX_ITEMS_PER_DIR = 50;     // ایک directory میں زیادہ سے زیادہ items
+const MAX_FILE_READ_SIZE = 10000; // 10KB — context میں شامل files کی حد
+const MAX_CONTEXT_LENGTH = 15000; // پورے context کی زیادہ سے زیادہ لمبائی
+
+// وہ folders جو ہمیشہ ignore ہوں گے
+const IGNORED_DIRS = [
+  "node_modules", ".git", ".next", "dist", "build",
+  ".expo", ".cache", ".vite", "coverage", ".idea",
+  ".vscode", "__tests__", "__pycache__", ".turbo",
+  "android", "ios", ".gradle",
+];
+
+// Project type کے حساب سے important files
+const IMPORTANT_FILES_BY_TYPE = {
+  react: [
+    "package.json",
+    "src/App.jsx", "src/App.js", "src/App.tsx",
+    "src/main.jsx", "src/main.js", "src/index.jsx", "src/index.js",
+    "vite.config.js", "vite.config.ts",
+    "index.html",
+  ],
+  nextjs: [
+    "package.json",
+    "next.config.js", "next.config.mjs",
+    "app/layout.jsx", "app/layout.js", "app/layout.tsx",
+    "app/page.jsx", "app/page.js", "app/page.tsx",
+    "src/app/layout.jsx", "src/app/page.jsx",
+  ],
+  expo: [
+    "package.json",
+    "app.json", "app.config.js",
+    "App.js", "App.jsx", "App.tsx",
+    "app/index.jsx", "app/index.js",
+    "app/_layout.jsx", "app/_layout.js",
+  ],
+  nodejs: [
+    "package.json",
+    "index.js", "server.js", "app.js",
+    "src/index.js", "src/app.js",
+  ],
+  default: [
+    "package.json",
+    "README.md",
+    "index.html",
+  ],
+};
+
 class ProjectContext {
   constructor(projectPath) {
-    this.projectPath = projectPath;
-    this.context = null;
+    this.projectPath = path.resolve(projectPath);
+    this.context = null; // Cache
   }
 
-  // project کی type detect کریں
-  detectProjectType() {
-    const packageJsonPath = path.join(this.projectPath, "package.json");
+  // ═══════════════════════════════════════════════════════
+  // 🎯 MAIN: Get Full Context String
+  // ═══════════════════════════════════════════════════════
+  getContextString() {
+    if (this.context) return this.context;
 
-    if (!fs.existsSync(packageJsonPath)) {
+    try {
+      const parts = [];
+
+      // 1. Project type detect کریں
+      const projectType = this.detectProjectType();
+      parts.push(`Project Type: ${projectType}`);
+      parts.push(`Project Path: ${this.projectPath}`);
+      parts.push("");
+
+      // 2. Directory structure
+      parts.push("DIRECTORY STRUCTURE:");
+      const structure = this.getStructure();
+      parts.push(structure);
+      parts.push("");
+
+      // 3. Important files content
+      parts.push("KEY FILES:");
+      const keyFiles = this.readImportantFiles(projectType);
+      parts.push(keyFiles);
+
+      // 4. Truncate if too long
+      let fullContext = parts.join("\n");
+      if (fullContext.length > MAX_CONTEXT_LENGTH) {
+        fullContext = fullContext.slice(0, MAX_CONTEXT_LENGTH) +
+          `\n\n... [context truncated at ${MAX_CONTEXT_LENGTH} chars to save tokens] ...`;
+      }
+
+      this.context = fullContext;
+      return this.context;
+    } catch (error) {
+      return `Error building project context: ${error.message}`;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // 🔍 DETECT PROJECT TYPE
+  // ═══════════════════════════════════════════════════════
+  detectProjectType() {
+    const pkgPath = path.join(this.projectPath, "package.json");
+
+    if (!fs.existsSync(pkgPath)) return "unknown";
+
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+      const allDeps = {
+        ...pkg.dependencies,
+        ...pkg.devDependencies,
+      };
+
+      if (allDeps["expo"]) return "expo";
+      if (allDeps["next"]) return "nextjs";
+      if (allDeps["react"] && (allDeps["vite"] || allDeps["react-scripts"])) return "react";
+      if (allDeps["react-native"]) return "react-native";
+      if (allDeps["express"] || allDeps["fastify"] || allDeps["koa"]) return "nodejs";
+      if (allDeps["react"]) return "react";
+
+      return "nodejs";
+    } catch {
       return "unknown";
     }
-
-    const packageJson = JSON.parse(
-      fs.readFileSync(packageJsonPath, "utf-8")
-    );
-
-    const deps = {
-      ...packageJson.dependencies,
-      ...packageJson.devDependencies,
-    };
-
-    if (deps["expo"]) return "expo";
-    if (deps["next"]) return "nextjs";
-    if (deps["react-native"]) return "react-native";
-    if (deps["react"]) return "react";
-
-    return "nodejs";
   }
 
-  // project کا basic structure حاصل کریں
+  // ═══════════════════════════════════════════════════════
+  // 📁 GET DIRECTORY STRUCTURE (Token-efficient)
+  // ═══════════════════════════════════════════════════════
   getStructure(dirPath = this.projectPath, depth = 0) {
-    if (depth > 2) return [];
+    if (depth > MAX_DEPTH) return "";
 
-    const items = fs.readdirSync(dirPath, { withFileTypes: true });
-    const result = [];
+    try {
+      const items = fs.readdirSync(dirPath, { withFileTypes: true });
+      const lines = [];
+      let itemCount = 0;
 
-    const ignored = [
-      "node_modules",
-      ".git",
-      ".next",
-      "build",
-      "dist",
-      ".expo",
-    ];
+      // Sort: folders first, then files, alphabetically
+      const sorted = items
+        .filter((item) => {
+          if (item.name.startsWith(".")) return false;
+          if (item.isDirectory() && IGNORED_DIRS.includes(item.name)) return false;
+          return true;
+        })
+        .sort((a, b) => {
+          if (a.isDirectory() && !b.isDirectory()) return -1;
+          if (!a.isDirectory() && b.isDirectory()) return 1;
+          return a.name.localeCompare(b.name);
+        });
 
-    for (const item of items) {
-      if (item.name.startsWith(".")) continue;
-      if (ignored.includes(item.name)) continue;
+      for (const item of sorted) {
+        if (itemCount >= MAX_ITEMS_PER_DIR) {
+          const indent = "  ".repeat(depth);
+          lines.push(`${indent}... (${sorted.length - itemCount} more items)`);
+          break;
+        }
 
-      const fullPath = path.join(dirPath, item.name);
-      const relativePath = fullPath.replace(this.projectPath + "/", "");
+        itemCount++;
+        const indent = "  ".repeat(depth);
 
-      if (item.isDirectory()) {
-        result.push(`📁 ${relativePath}/`);
-        const children = this.getStructure(fullPath, depth + 1);
-        result.push(...children);
-      } else {
-        result.push(`📄 ${relativePath}`);
+        if (item.isDirectory()) {
+          // ✅ Plain text — emoji نہیں
+          lines.push(`${indent}[DIR] ${item.name}/`);
+          const subStructure = this.getStructure(
+            path.join(dirPath, item.name),
+            depth + 1
+          );
+          if (subStructure) {
+            lines.push(subStructure);
+          }
+        } else {
+          lines.push(`${indent}[FILE] ${item.name}`);
+        }
+      }
+
+      return lines.join("\n");
+    } catch {
+      return "";
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // 📖 READ IMPORTANT FILES (Token-efficient)
+  // ═══════════════════════════════════════════════════════
+  readImportantFiles(projectType) {
+    const filesToRead = IMPORTANT_FILES_BY_TYPE[projectType] ||
+                        IMPORTANT_FILES_BY_TYPE.default;
+    const results = [];
+    let totalLength = 0;
+
+    for (const filePath of filesToRead) {
+      // ✅ Budget check — context بہت لمبا نہ ہو
+      if (totalLength >= MAX_CONTEXT_LENGTH / 2) {
+        results.push(`\n... [remaining files skipped to save tokens] ...`);
+        break;
+      }
+
+      const fullPath = path.join(this.projectPath, filePath);
+
+      if (!fs.existsSync(fullPath)) continue;
+
+      try {
+        const stat = fs.statSync(fullPath);
+
+        // Skip directories
+        if (stat.isDirectory()) continue;
+
+        // Skip large files
+        if (stat.size > MAX_FILE_READ_SIZE) {
+          results.push(`\n--- ${filePath} (${(stat.size / 1024).toFixed(1)}KB - too large, showing first 200 lines) ---`);
+          const content = fs.readFileSync(fullPath, "utf-8");
+          const lines = content.split("\n").slice(0, 200);
+          const truncated = lines.join("\n");
+          results.push(truncated);
+          totalLength += truncated.length;
+          continue;
+        }
+
+        // Skip binary files
+        const ext = path.extname(filePath).toLowerCase();
+        const binaryExts = [".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".ico", ".woff", ".woff2"];
+        if (binaryExts.includes(ext)) continue;
+
+        const content = fs.readFileSync(fullPath, "utf-8");
+        results.push(`\n--- ${filePath} ---`);
+        results.push(content);
+        totalLength += content.length;
+      } catch {
+        // Skip unreadable files
+        continue;
       }
     }
 
-    return result;
+    return results.length > 0 ? results.join("\n") : "(no key files found)";
   }
 
-  // package.json سے اہم معلومات نکالیں
-  getPackageInfo() {
-    const packageJsonPath = path.join(this.projectPath, "package.json");
+  // ═══════════════════════════════════════════════════════
+  // 🔄 REFRESH (Cache clear)
+  // ═══════════════════════════════════════════════════════
+  refresh() {
+    this.context = null;
+    return this.getContextString();
+  }
 
-    if (!fs.existsSync(packageJsonPath)) {
-      return null;
+  // ═══════════════════════════════════════════════════════
+  // 📊 GET PROJECT INFO (Summary only — very token-efficient)
+  // ═══════════════════════════════════════════════════════
+  getProjectSummary() {
+    const projectType = this.detectProjectType();
+    const pkgPath = path.join(this.projectPath, "package.json");
+
+    let name = "Unknown Project";
+    let deps = [];
+
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+        name = pkg.name || name;
+        deps = Object.keys(pkg.dependencies || {});
+      } catch {}
     }
 
-    const packageJson = JSON.parse(
-      fs.readFileSync(packageJsonPath, "utf-8")
-    );
+    // Count files (quick estimate)
+    let fileCount = 0;
+    try {
+      const countFiles = (dir, depth = 0) => {
+        if (depth > 2) return;
+        const items = fs.readdirSync(dir, { withFileTypes: true });
+        for (const item of items) {
+          if (item.name.startsWith(".") || IGNORED_DIRS.includes(item.name)) continue;
+          if (item.isFile()) fileCount++;
+          else if (item.isDirectory()) countFiles(path.join(dir, item.name), depth + 1);
+        }
+      };
+      countFiles(this.projectPath);
+    } catch {}
 
     return {
-      name: packageJson.name,
-      version: packageJson.version,
-      scripts: packageJson.scripts,
-      dependencies: Object.keys(packageJson.dependencies || {}),
-      devDependencies: Object.keys(packageJson.devDependencies || {}),
+      name,
+      type: projectType,
+      path: this.projectPath,
+      fileCount,
+      dependencies: deps.slice(0, 15), // Top 15 only
     };
-  }
-
-  // کسی file کا content پڑھیں
-  readFile(filePath) {
-    const fullPath = path.join(this.projectPath, filePath);
-
-    if (!fs.existsSync(fullPath)) {
-      return null;
-    }
-
-    return fs.readFileSync(fullPath, "utf-8");
-  }
-
-  // پورا context تیار کریں
-  buildContext() {
-    const projectType = this.detectProjectType();
-    const structure = this.getStructure();
-    const packageInfo = this.getPackageInfo();
-
-    // اہم files پڑھیں
-    const importantFiles = {};
-    const filesToRead = [
-      "src/App.js",
-      "src/App.jsx",
-      "app/page.js",
-      "app/page.jsx",
-      "App.js",
-      "App.jsx",
-    ];
-
-    for (const file of filesToRead) {
-      const content = this.readFile(file);
-      if (content) {
-        importantFiles[file] = content;
-      }
-    }
-
-    this.context = {
-      projectType,
-      packageInfo,
-      structure: structure.join("\n"),
-      importantFiles,
-    };
-
-    return this.context;
-  }
-
-  // context کو string میں تبدیل کریں Agent کے لیے
-  getContextString() {
-    if (!this.context) {
-      this.buildContext();
-    }
-
-    const { projectType, packageInfo, structure, importantFiles } =
-      this.context;
-
-    let contextStr = `PROJECT INFORMATION:
-Type: ${projectType}
-Name: ${packageInfo?.name || "unknown"}
-
-PROJECT STRUCTURE:
-${structure}
-
-INSTALLED PACKAGES:
-${packageInfo?.dependencies?.join(", ") || "none"}
-
-AVAILABLE SCRIPTS:
-${Object.entries(packageInfo?.scripts || {})
-  .map(([k, v]) => `${k}: ${v}`)
-  .join("\n")}`;
-
-    if (Object.keys(importantFiles).length > 0) {
-      contextStr += "\n\nKEY FILES:\n";
-      for (const [file, content] of Object.entries(importantFiles)) {
-        contextStr += `\n--- ${file} ---\n${content}\n`;
-      }
-    }
-
-    return contextStr;
   }
 }
 

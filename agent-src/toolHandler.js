@@ -1,13 +1,18 @@
 const FileSystem = require("./fileSystem");
 const Terminal = require("./terminal");
+const path = require("path");
+const fs = require("fs");
 
 class ToolHandler {
   constructor(projectPath) {
     this.fileSystem = new FileSystem(projectPath);
     this.terminal = new Terminal(projectPath);
+    this.projectPath = projectPath;
   }
 
-  // Agent کے لیے available tools کی definition
+  // ═══════════════════════════════════════════════════════
+  // AGENT کے لیے AVAILABLE TOOLS کی DEFINITION
+  // ═══════════════════════════════════════════════════════
   getToolDefinitions() {
     return [
       {
@@ -71,19 +76,19 @@ class ToolHandler {
         },
       },
       {
-       name: "delete_file",
-       description: "Permanently delete a file from the project directory",
-       input_schema: {
-       type: "object",
-       properties: {
-       file_path: {
-        type: "string",
-        description: "Path to the file relative to project root. Example: src/old-component.js",
+        name: "delete_file",
+        description: "Permanently delete a file from the project directory",
+        input_schema: {
+          type: "object",
+          properties: {
+            file_path: {
+              type: "string",
+              description: "Path to the file relative to project root. Example: src/old-component.js",
+            },
+          },
+          required: ["file_path"],
+        },
       },
-      },
-       required: ["file_path"],
-      },
-    },
       {
         name: "run_command",
         description: "Run an allowed terminal command in the project directory",
@@ -92,62 +97,170 @@ class ToolHandler {
           properties: {
             command: {
               type: "string",
-              description: "Command to run. Allowed: npm install, npm run build, npm test, npm run dev",
+              description: "Command to run. Allowed: npm install, npm run build, npm test, npm run dev, node, yarn, pnpm",
             },
           },
           required: ["command"],
         },
       },
+      // ✅ نیا: Plan file پڑھنے کا tool
+      {
+        name: "read_plan_file",
+        description: "Read a .txt plan file from the project and extract steps from it",
+        input_schema: {
+          type: "object",
+          properties: {
+            file_path: {
+              type: "string",
+              description: "Path to the .txt plan file. Example: project-plan.txt",
+            },
+          },
+          required: ["file_path"],
+        },
+      },
+      // ✅ نیا: Knowledge file save کرنے کا tool
+      {
+        name: "save_knowledge",
+        description: "Save important information to memory for future reference",
+        input_schema: {
+          type: "object",
+          properties: {
+            category: {
+              type: "string",
+              description: "Category: preferences, projectDecisions, completedTasks, notes",
+              enum: ["preferences", "projectDecisions", "completedTasks", "notes"],
+            },
+            item: {
+              type: "string",
+              description: "The information to remember",
+            },
+          },
+          required: ["category", "item"],
+        },
+      },
     ];
   }
 
-  // tool چلائیں
+  // ═══════════════════════════════════════════════════════
+  // TOOL CHلائیں
+  // ═══════════════════════════════════════════════════════
   async executeTool(toolName, toolInput) {
     console.log(`\n🔧 Using tool: ${toolName}`);
 
-    switch (toolName) {
-      case "read_file": {
-        const content = this.fileSystem.readFile(toolInput.file_path);
-        console.log(`📄 Reading: ${toolInput.file_path}`);
-        return content;
-      }
+    try {
+      switch (toolName) {
+        case "read_file": {
+          console.log(`📄 Reading: ${toolInput.file_path}`);
+          const content = this.fileSystem.readFile(toolInput.file_path);
 
-      case "write_file": {
-        console.log(`✍️  Writing: ${toolInput.file_path}`);
-        // file exist کرتی ہے تو update کریں، نہیں تو create
-        const result = this.fileSystem.writeFile(
-          toolInput.file_path,
-          toolInput.content
-        );
-        return result;
-      }
+          // ✅ بڑی files truncate کریں (tokens بچانے کے لیے)
+          if (content.length > 15000) {
+            return content.slice(0, 15000) +
+                   `\n\n... [truncated ${content.length - 15000} characters] ...`;
+          }
+          return content;
+        }
 
-      case "list_files": {
-        const files = this.fileSystem.listFiles(toolInput.sub_path || "");
-        console.log(`📁 Listing files`);
-        return files;
-      }
+        case "write_file": {
+          console.log(`✍️  Writing: ${toolInput.file_path}`);
+          const result = this.fileSystem.writeFile(
+            toolInput.file_path,
+            toolInput.content
+          );
+          return result;
+        }
 
-      case "search_files": {
-        const results = this.fileSystem.searchFiles(toolInput.search_term);
-        console.log(`🔍 Searching: ${toolInput.search_term}`);
-        return results;
-      }
+        case "list_files": {
+          console.log(`📁 Listing files`);
+          const files = this.fileSystem.listFiles(toolInput.sub_path || "");
 
-      case "delete_file": {
-      console.log(`🗑️ Deleting: ${toolInput.file_path}`);
-      const result = this.fileSystem.deleteFile(toolInput.file_path);
-      return result;
-      }
+          // ✅ بہت زیادہ files truncate کریں
+          if (files.length > 10000) {
+            return files.slice(0, 10000) +
+                   `\n\n... [truncated ${files.length - 10000} characters] ...`;
+          }
+          return files;
+        }
 
-      case "run_command": {
-        console.log(`⚡ Running: ${toolInput.command}`);
-        const cmdResult = await this.terminal.run(toolInput.command);
-        return cmdResult.output;
-      }
+        case "search_files": {
+          console.log(`🔍 Searching: ${toolInput.search_term}`);
+          const results = this.fileSystem.searchFiles(toolInput.search_term);
+          return results;
+        }
 
-      default:
-        return `Error: Unknown tool: ${toolName}`;
+        case "delete_file": {
+          console.log(`🗑️ Deleting: ${toolInput.file_path}`);
+          const result = this.fileSystem.deleteFile(toolInput.file_path);
+          return result;
+        }
+
+        case "run_command": {
+          console.log(`⚡ Running: ${toolInput.command}`);
+
+          // ✅ Security check — allowed commands only
+          if (!this.terminal.isAllowed(toolInput.command)) {
+            return `❌ Command not allowed: ${toolInput.command}\n` +
+                   `Allowed commands: npm, node, yarn, pnpm, ls, dir, echo, cat, pwd`;
+          }
+
+          const cmdResult = await this.terminal.run(toolInput.command);
+
+          // ✅ بڑا output truncate کریں
+          if (cmdResult.output.length > 8000) {
+            return cmdResult.output.slice(0, 8000) +
+                   `\n\n... [truncated ${cmdResult.output.length - 8000} characters] ...`;
+          }
+          return cmdResult.output;
+        }
+
+        // ✅ نیا: Plan file پڑھیں
+        case "read_plan_file": {
+          console.log(`📋 Reading plan file: ${toolInput.file_path}`);
+          const content = this.fileSystem.readFile(toolInput.file_path);
+
+          if (content.startsWith("Error:")) {
+            return content;
+          }
+
+          // ✅ Steps extract کریں (numbered lines)
+          const lines = content.split("\n");
+          const steps = [];
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            // Numbered lines: "1.", "Step 1:", "- Step 1", etc.
+            const match = trimmed.match(/^[\d]+[.)]\s*(.+)$/) ||
+                         trimmed.match(/^step\s+[\d]+[:.]\s*(.+)$/i) ||
+                         trimmed.match(/^[-•]\s*(.+)$/);
+
+            if (match) {
+              steps.push(match[1].trim());
+            }
+          }
+
+          if (steps.length === 0) {
+            return `⚠️ No steps found in the plan file.\n\nFile content:\n${content}`;
+          }
+
+          return `✅ Plan file read successfully!\n\n` +
+                 `Found ${steps.length} steps:\n` +
+                 steps.map((s, i) => `${i + 1}. ${s}`).join("\n") +
+                 `\n\n--- FULL CONTENT ---\n${content}`;
+        }
+
+        // ✅ نیا: Knowledge save کریں
+        case "save_knowledge": {
+          console.log(`💾 Saving knowledge: [${toolInput.category}] ${toolInput.item}`);
+          // یہ Agent.js میں handle ہوگا — یہاں صرف return کریں
+          return `✅ Knowledge saved to memory: [${toolInput.category}] ${toolInput.item}`;
+        }
+
+        default:
+          return `❌ Error: Unknown tool: ${toolName}`;
+      }
+    } catch (error) {
+      console.error(`❌ Tool execution error:`, error);
+      return `❌ Error executing ${toolName}: ${error.message}`;
     }
   }
 }

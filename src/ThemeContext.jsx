@@ -12,14 +12,32 @@ export function ThemeProvider({ children }) {
   }, []);
 
   async function loadTheme() {
-    const result = await window.electronAPI.getSettings();
-    if (result.success && result.settings.theme) {
-      setMode(result.settings.theme);
+    try {
+      const result = await window.electronAPI.getSettings();
+      if (result.success && result.settings.theme) {
+        setMode(result.settings.theme);
+      }
+    } catch (error) {
+      console.error("Error loading theme:", error);
     }
   }
 
-  function toggleTheme(newMode) {
+  // ✅ FIX: جب theme toggle ہو تو اسے save بھی کریں
+  async function toggleTheme(newMode) {
     setMode(newMode);
+
+    // نئی settings لوڈ کریں، theme update کریں، اور save کریں
+    try {
+      const result = await window.electronAPI.getSettings();
+      const currentSettings = result.success ? result.settings : {};
+
+      await window.electronAPI.saveSettings({
+        ...currentSettings,
+        theme: newMode,
+      });
+    } catch (error) {
+      console.error("Error saving theme:", error);
+    }
   }
 
   return (

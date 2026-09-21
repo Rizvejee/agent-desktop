@@ -34,13 +34,30 @@ function getFileIcon(name) {
 function getLanguage(name) {
   const ext = name.split(".").pop()?.toLowerCase();
   const map = {
-    js: "javascript", jsx: "jsx", ts: "typescript", tsx: "tsx",
-    py: "python", java: "java", cpp: "cpp", c: "c", go: "go", rs: "rust",
-    md: "markdown", json: "json", yaml: "yaml", yml: "yaml",
-    html: "html", css: "css", scss: "scss", xml: "xml",
-    sh: "bash", bash: "bash", sql: "sql",
+    js: "javascript",
+    jsx: "jsx",
+    ts: "typescript",
+    tsx: "tsx",
+    py: "python",
+    java: "java",
+    cpp: "cpp",
+    c: "c",
+    go: "go",
+    rs: "rust",
+    md: "markdown",
+    json: "json",
+    yaml: "yaml",
+    yml: "yaml",
+    html: "html",
+    css: "css",
+    scss: "scss",
+    xml: "xml",
+    sh: "bash",
+    bash: "bash",
+    sql: "sql",
   };
-  return map[ext] || "text";
+  // ✅ FIX: "text" → "plaintext" (SyntaxHighlighter "text" support نہیں کرتا)
+  return map[ext] || "plaintext";
 }
 
 // Tree Node (recursive)
@@ -89,7 +106,6 @@ function TreeNode({ node, depth, expanded, onToggle, onSelect, selectedPath, the
         )}
         <span style={treeStyles.itemName}>{node.name}</span>
       </div>
-
       {isFolder && isExpanded && node.children && (
         <div>
           {node.children.map((child) => (
@@ -263,6 +279,7 @@ export default function FileExplorer({ activeProject, onClose }) {
                   {copied ? "Copied" : "Copy"}
                 </button>
               </div>
+
               {/* File Content */}
               <div style={styles.fileContent}>
                 {loadingContent ? (
@@ -302,6 +319,9 @@ export default function FileExplorer({ activeProject, onClose }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════
 const styles = {
   container: {
     flex: 1,

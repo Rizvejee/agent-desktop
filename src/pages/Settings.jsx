@@ -10,24 +10,20 @@ import {
 } from "lucide-react";
 import { useTheme } from "../ThemeContext";
 
-const MODELS = [
-  { id: "openai/gpt-oss-120b", name: "GPT OSS 120B", desc: "Most capable — recommended" },
-  { id: "openai/gpt-oss-20b", name: "GPT OSS 20B", desc: "Faster responses" },
-  { id: "qwen/qwen3.8-27b", name: "Qwen 3.8 27B", desc: "Alternative model" },
-];
+// ❌ ہٹایا گیا: MODELS array (dead code تھا)
 
 const AGENT_MODES = [
   { id: "ask", label: "Ask", desc: "Only suggest code, never modify files" },
   { id: "assisted", label: "Assisted", desc: "Ask before making important changes" },
   { id: "auto", label: "Auto", desc: "Work independently without confirmation" },
 ];
+
 const NAV_ITEMS = [
   { id: "agent-config", label: "Agent", icon: Bot },
   { id: "model", label: "AI Model", icon: Bot },
   { id: "agentmode", label: "Agent Mode", icon: Sliders },
   { id: "appearance", label: "Appearance", icon: Sun },
 ];
-
 
 export default function Settings({ onClose, onThemeChange, currentTheme }) {
   const [customModel, setCustomModel] = useState("");
@@ -38,35 +34,42 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
   const [modelError, setModelError] = useState("");
   const [provider, setProvider] = useState("groq");
   const [groqApiKey, setGroqApiKey] = useState("");
-  const [groqModel, setGroqModel] = useState("openai/gpt-oss-120b");
+  // ✅ FIX: صحیح Groq default model
+  const [groqModel, setGroqModel] = useState("llama-3.3-70b-versatile");
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [geminiModel, setGeminiModel] = useState("");
-  const [ollamaUrl, setOllamaUrl] = useState("http://localhost:11434/v1");
+  const [ollamaUrl, setOllamaUrl] = useState("http://localhost:11434");
   const [ollamaModel, setOllamaModel] = useState("llama3.2");
   const [showGroqKey, setShowGroqKey] = useState(false);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const { theme } = useTheme();
-  const [apiKey, setApiKey] = useState("");
-  const [showKey, setShowKey] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
+  const [selectedModel, setSelectedModel] = useState("llama-3.3-70b-versatile");
   const [agentMode, setAgentMode] = useState("assisted");
   const [activeSection, setActiveSection] = useState("model");
   const [saved, setSaved] = useState(false);
   const [agentName, setAgentName] = useState("Coder");
   const [agentRole, setAgentRole] = useState("Personal AI Coding Assistant");
-  const [agentLanguage, setAgentLanguage] = useState("English");
+  const [agentLanguage, setAgentLanguage] = useState("Urdu");
+
+  // ✅ FIX: Template literal استعمال کریں (multiline string syntax error سے بچنے کے لیے)
   const [agentRules, setAgentRules] = useState(
-  "Always write clean, readable and reusable code.\nFollow DRY principles and existing project architecture.\nDo not add unnecessary dependencies.\nKeep explanations concise."
-   );
+    `Always write clean, readable and reusable code.
+Follow DRY principles and existing project architecture.
+Always create JSX files for components & pages with everything inline.
+Use English everywhere in the project code.
+Do not add unnecessary dependencies.
+Keep explanations concise.`
+  );
+
   const [agentTechnologies, setAgentTechnologies] = useState([
-  "React",
-  "React Native",
-  "Next.js",
-  "Expo",
-  "JavaScript",
-  "HTML",
-  "CSS",
-]);
+    "React",
+    "React Native",
+    "Next.js",
+    "Expo",
+    "JavaScript",
+    "HTML",
+    "CSS",
+  ]);
 
   useEffect(() => {
     loadSettings();
@@ -101,37 +104,56 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
       return;
     }
     setLoadingModels(true);
+    setModelError("");
     try {
       const result = await window.electronAPI.fetchGeminiModels(geminiApiKey);
       if (result.success) {
         setAvailableModels(result.models);
       } else {
-        alert("Error fetching models: " + result.error);
+        setModelError("Error fetching models: " + result.error);
       }
     } catch (error) {
-      alert("Error: " + error.message);
+      setModelError("Error: " + error.message);
     }
     setLoadingModels(false);
   }
 
   async function fetchAvailableGroqModels() {
-  if (!groqApiKey) {
-    alert("Please enter Groq API Key first to fetch models!");
-    return;
-  }
-  setLoadingGroqModels(true);
-  try {
-    const result = await window.electronAPI.fetchGroqModels(groqApiKey);
-    if (result.success) {
-      setAvailableGroqModels(result.models);
-    } else {
-      alert("Error fetching models: " + result.error);
+    if (!groqApiKey) {
+      alert("Please enter Groq API Key first to fetch models!");
+      return;
     }
-  } catch (error) {
-    alert("Error: " + error.message);
+    setLoadingGroqModels(true);
+    setModelError("");
+    try {
+      const result = await window.electronAPI.fetchGroqModels(groqApiKey);
+      if (result.success) {
+        setAvailableGroqModels(result.models);
+      } else {
+        setModelError("Error fetching models: " + result.error);
+      }
+    } catch (error) {
+      setModelError("Error: " + error.message);
+    }
+    setLoadingGroqModels(false);
   }
-  setLoadingGroqModels(false);
-}
+
+  // ✅ نیا: Ollama models fetch
+  async function fetchAvailableOllamaModels() {
+    setLoadingModels(true);
+    setModelError("");
+    try {
+      const result = await window.electronAPI.fetchOllamaModels();
+      if (result.success) {
+        setAvailableModels(result.models);
+      } else {
+        setModelError("Error fetching Ollama models: " + result.error);
+      }
+    } catch (error) {
+      setModelError("Error: " + error.message);
+    }
+    setLoadingModels(false);
+  }
 
   async function saveSettings() {
     await window.electronAPI.saveSettings({
@@ -185,12 +207,7 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
   };
 
   return (
-    <div
-      style={{
-        ...styles.container,
-        background: theme.bgMain,
-      }}
-    >
+    <div style={{ ...styles.container, background: theme.bgMain }}>
       {/* Header */}
       <div
         style={{
@@ -242,550 +259,577 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
 
         {/* Right Content */}
         <div style={styles.content}>
+          {/* ═══ Agent Configuration ═══ */}
+          {activeSection === "agent-config" && (
+            <div style={styles.section}>
+              <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
+                Agent Configuration
+              </h3>
+              <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
+                Customize your agent's identity, language and behavior.
+              </p>
 
-        {activeSection === "agent-config" && (
-  <div style={styles.section}>
-    <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
-      Agent Configuration
-    </h3>
-    <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
-      Customize your agent's identity, language and behavior.
-    </p>
-
-    {/* Name */}
-    <div style={styles.field}>
-      <label style={{ ...styles.label, color: theme.textSecondary }}>
-        Agent Name
-      </label>
-      <input
-        style={{
-          ...styles.input,
-          background: theme.bgInput,
-          border: `1px solid ${theme.border}`,
-          color: theme.textPrimary,
-        }}
-        value={agentName}
-        onChange={(e) => setAgentName(e.target.value)}
-        placeholder="Coder"
-      />
-    </div>
-
-    {/* Role */}
-    <div style={styles.field}>
-      <label style={{ ...styles.label, color: theme.textSecondary }}>
-        Agent Role
-      </label>
-      <input
-        style={{
-          ...styles.input,
-          background: theme.bgInput,
-          border: `1px solid ${theme.border}`,
-          color: theme.textPrimary,
-        }}
-        value={agentRole}
-        onChange={(e) => setAgentRole(e.target.value)}
-        placeholder="Personal AI Coding Assistant"
-      />
-    </div>
-
-    {/* Language */}
-    <div style={styles.field}>
-      <label style={{ ...styles.label, color: theme.textSecondary }}>
-        Language
-      </label>
-      <select
-        style={{
-          ...styles.input,
-          background: theme.bgInput,
-          border: `1px solid ${theme.border}`,
-          color: theme.textPrimary,
-          cursor: "pointer",
-        }}
-        value={agentLanguage}
-        onChange={(e) => setAgentLanguage(e.target.value)}
-      >
-        <option value="English">English</option>
-        <option value="Urdu">Urdu</option>
-        <option value="Roman Urdu">Roman Urdu</option>
-        <option value="Hindi">Hindi</option>
-      </select>
-    </div>
-
-    {/* Technologies */}
-    <div style={styles.field}>
-      <label style={{ ...styles.label, color: theme.textSecondary }}>
-        Technologies
-      </label>
-      <div style={styles.techGrid}>
-        {[
-          "React",
-          "React Native",
-          "Next.js",
-          "Expo",
-          "JavaScript",
-          "Electron Plus React",
-          "HTML",
-          "CSS",
-          "Node.js",
-          "Express",
-        ].map((tech) => {
-          const isSelected = agentTechnologies.includes(tech);
-          return (
-            <button
-              key={tech}
-              style={{
-                ...styles.techBtn,
-                background: isSelected ? theme.accentLight : theme.bgCard,
-                border: isSelected
-                  ? `1.5px solid ${theme.accent}`
-                  : `1px solid ${theme.border}`,
-                color: isSelected ? theme.accent : theme.textSecondary,
-              }}
-              onClick={() => {
-                if (isSelected) {
-                  setAgentTechnologies((prev) =>
-                    prev.filter((t) => t !== tech)
-                  );
-                } else {
-                  setAgentTechnologies((prev) => [...prev, tech]);
-                }
-              }}
-            >
-              {isSelected && <Check size={11} />}
-              {tech}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-
-    {/* Rules */}
-    <div style={styles.field}>
-      <label style={{ ...styles.label, color: theme.textSecondary }}>
-        Rules & Behavior
-      </label>
-      <textarea
-        style={{
-          ...styles.input,
-          background: theme.bgInput,
-          border: `1px solid ${theme.border}`,
-          color: theme.textPrimary,
-          height: "120px",
-          resize: "vertical",
-          fontFamily: "inherit",
-          lineHeight: "1.6",
-          padding: "10px 14px",
-        }}
-        value={agentRules}
-        onChange={(e) => setAgentRules(e.target.value)}
-        placeholder="- Always write clean code&#10;- Follow existing architecture&#10;- No unnecessary dependencies"
-      />
-      <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
-        Each rule on a new line. These apply to all projects.
-      </span>
-    </div>
-  </div>
-)}
-
-          {/* AI Model */}
-          {activeSection === "model" && (
-  <div style={styles.section}>
-    <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
-      AI Model
-    </h3>
-    <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
-      Choose your AI provider and configure its settings.
-    </p>
-
-    {/* Provider Selection */}
-    <div style={styles.cardList}>
-      {[
-        {
-          id: "groq",
-          name: "Groq",
-          desc: "Fast cloud AI — free tier available",
-          badge: "Recommended",
-        },
-        {
-          id: "gemini",
-          name: "Google Gemini",
-          desc: "Google's AI — free tier available",
-          badge: "Free",
-        },
-        {
-          id: "ollama",
-          name: "Ollama (Local)",
-          desc: "Run AI locally on your machine",
-          badge: "Private",
-        },
-      ].map((p) => {
-        const isSelected = provider === p.id;
-        return (
-          <div
-            key={p.id}
-            style={{
-              ...styles.card,
-              background: theme.bgCard,
-              border: isSelected
-                ? `2px solid ${theme.accent}`
-                : `1px solid ${theme.border}`,
-              boxShadow: isSelected
-                ? `0 0 0 3px ${theme.accent}18`
-                : theme.shadow,
-            }}
-            onClick={() => setProvider(p.id)}
-          >
-            <div style={styles.cardInfo}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ ...styles.cardTitle, color: theme.textPrimary }}>
-                  {p.name}
-                </span>
-                <span
+              {/* Name */}
+              <div style={styles.field}>
+                <label style={{ ...styles.label, color: theme.textSecondary }}>
+                  Agent Name
+                </label>
+                <input
                   style={{
-                    fontSize: "10px",
-                    padding: "2px 8px",
-                    borderRadius: "20px",
-                    background: theme.accentLight,
-                    color: theme.accent,
-                    fontWeight: "600",
+                    ...styles.input,
+                    background: theme.bgInput,
+                    border: `1px solid ${theme.border}`,
+                    color: theme.textPrimary,
+                  }}
+                  value={agentName}
+                  onChange={(e) => setAgentName(e.target.value)}
+                  placeholder="Coder"
+                />
+              </div>
+
+              {/* Role */}
+              <div style={styles.field}>
+                <label style={{ ...styles.label, color: theme.textSecondary }}>
+                  Agent Role
+                </label>
+                <input
+                  style={{
+                    ...styles.input,
+                    background: theme.bgInput,
+                    border: `1px solid ${theme.border}`,
+                    color: theme.textPrimary,
+                  }}
+                  value={agentRole}
+                  onChange={(e) => setAgentRole(e.target.value)}
+                  placeholder="Personal AI Coding Assistant"
+                />
+              </div>
+
+              {/* Language */}
+              <div style={styles.field}>
+                <label style={{ ...styles.label, color: theme.textSecondary }}>
+                  Language
+                </label>
+                <select
+                  style={{
+                    ...styles.input,
+                    background: theme.bgInput,
+                    border: `1px solid ${theme.border}`,
+                    color: theme.textPrimary,
+                    cursor: "pointer",
+                  }}
+                  value={agentLanguage}
+                  onChange={(e) => setAgentLanguage(e.target.value)}
+                >
+                  <option value="Urdu">Urdu (اردو)</option>
+                  <option value="English">English</option>
+                  <option value="Roman Urdu">Roman Urdu</option>
+                  <option value="Hindi">Hindi</option>
+                </select>
+              </div>
+
+              {/* Technologies */}
+              <div style={styles.field}>
+                <label style={{ ...styles.label, color: theme.textSecondary }}>
+                  Technologies
+                </label>
+                <div style={styles.techGrid}>
+                  {[
+                    "React",
+                    "React Native",
+                    "Next.js",
+                    "Expo",
+                    "JavaScript",
+                    "Electron Plus React",
+                    "HTML",
+                    "CSS",
+                    "Node.js",
+                    "Express",
+                  ].map((tech) => {
+                    const isSelected = agentTechnologies.includes(tech);
+                    return (
+                      <button
+                        key={tech}
+                        style={{
+                          ...styles.techBtn,
+                          background: isSelected ? theme.accentLight : theme.bgCard,
+                          border: isSelected
+                            ? `1.5px solid ${theme.accent}`
+                            : `1px solid ${theme.border}`,
+                          color: isSelected ? theme.accent : theme.textSecondary,
+                        }}
+                        onClick={() => {
+                          if (isSelected) {
+                            setAgentTechnologies((prev) =>
+                              prev.filter((t) => t !== tech)
+                            );
+                          } else {
+                            setAgentTechnologies((prev) => [...prev, tech]);
+                          }
+                        }}
+                      >
+                        {isSelected && <Check size={11} />}
+                        {tech}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Rules */}
+              <div style={styles.field}>
+                <label style={{ ...styles.label, color: theme.textSecondary }}>
+                  Rules & Behavior
+                </label>
+                <textarea
+                  style={{
+                    ...styles.input,
+                    background: theme.bgInput,
+                    border: `1px solid ${theme.border}`,
+                    color: theme.textPrimary,
+                    height: "120px",
+                    resize: "vertical",
+                    fontFamily: "inherit",
+                    lineHeight: "1.6",
+                    padding: "10px 14px",
+                  }}
+                  value={agentRules}
+                  onChange={(e) => setAgentRules(e.target.value)}
+                  placeholder="- Always write clean code&#10;- Follow existing architecture&#10;- No unnecessary dependencies"
+                />
+                <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+                  Each rule on a new line. These apply to all projects.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ═══ AI Model ═══ */}
+          {activeSection === "model" && (
+            <div style={styles.section}>
+              <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
+                AI Model
+              </h3>
+              <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
+                Choose your AI provider and configure its settings.
+              </p>
+
+              {/* Provider Selection */}
+              <div style={styles.cardList}>
+                {[
+                  {
+                    id: "groq",
+                    name: "Groq",
+                    desc: "Fast cloud AI — free tier available",
+                    badge: "Recommended",
+                  },
+                  {
+                    id: "gemini",
+                    name: "Google Gemini",
+                    desc: "Google's AI — free tier available",
+                    badge: "Free",
+                  },
+                  {
+                    id: "ollama",
+                    name: "Ollama (Local)",
+                    desc: "Run AI locally on your machine",
+                    badge: "Private",
+                  },
+                ].map((p) => {
+                  const isSelected = provider === p.id;
+                  return (
+                    <div
+                      key={p.id}
+                      style={{
+                        ...styles.card,
+                        background: theme.bgCard,
+                        border: isSelected
+                          ? `2px solid ${theme.accent}`
+                          : `1px solid ${theme.border}`,
+                        boxShadow: isSelected
+                          ? `0 0 0 3px ${theme.accent}18`
+                          : theme.shadow,
+                      }}
+                      onClick={() => setProvider(p.id)}
+                    >
+                      <div style={styles.cardInfo}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ ...styles.cardTitle, color: theme.textPrimary }}>
+                            {p.name}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              padding: "2px 8px",
+                              borderRadius: "20px",
+                              background: theme.accentLight,
+                              color: theme.accent,
+                              fontWeight: "600",
+                            }}
+                          >
+                            {p.badge}
+                          </span>
+                        </div>
+                        <span style={{ ...styles.cardDesc, color: theme.textMuted }}>
+                          {p.desc}
+                        </span>
+                      </div>
+                      {isSelected && (
+                        <div style={{ ...styles.checkCircle, background: theme.accent }}>
+                          <Check size={12} color="#fff" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Error message */}
+              {modelError && (
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "8px",
+                    background: theme.errorBg,
+                    color: theme.error,
+                    fontSize: "12px",
                   }}
                 >
-                  {p.badge}
-                </span>
-              </div>
-              <span style={{ ...styles.cardDesc, color: theme.textMuted }}>
-                {p.desc}
-              </span>
+                  {modelError}
+                </div>
+              )}
+
+              {/* ─── Groq Settings ─── */}
+              {provider === "groq" && (
+                <div style={providerStyles.box}>
+                  <div style={{ ...providerStyles.title, color: theme.textSecondary }}>
+                    Groq Configuration
+                  </div>
+                  <div style={styles.field}>
+                    <label style={{ ...styles.label, color: theme.textSecondary }}>
+                      API Key
+                    </label>
+                    <div style={styles.inputRow}>
+                      <input
+                        style={{
+                          ...styles.input,
+                          background: theme.bgInput,
+                          border: `1px solid ${theme.border}`,
+                          color: theme.textPrimary,
+                        }}
+                        type={showGroqKey ? "text" : "password"}
+                        value={groqApiKey}
+                        onChange={(e) => setGroqApiKey(e.target.value)}
+                        placeholder="gsk_..."
+                      />
+                      <button
+                        style={{
+                          ...styles.toggleBtn,
+                          background: theme.bgHover,
+                          border: `1px solid ${theme.border}`,
+                          color: theme.textSecondary,
+                        }}
+                        onClick={() => setShowGroqKey(!showGroqKey)}
+                      >
+                        {showGroqKey ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                    <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+                      Get free API key from console.groq.com
+                    </span>
+                  </div>
+                  <div style={styles.field}>
+                    <label style={{ ...styles.label, color: theme.textSecondary }}>
+                      Model Name
+                    </label>
+                    <input
+                      style={{
+                        ...styles.input,
+                        background: theme.bgInput,
+                        border: `1px solid ${theme.border}`,
+                        color: theme.textPrimary,
+                        fontFamily: "Monaco, Menlo, monospace",
+                      }}
+                      value={groqModel}
+                      onChange={(e) => setGroqModel(e.target.value)}
+                      placeholder="e.g., llama-3.3-70b-versatile"
+                    />
+                    <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+                      Currently selected:{" "}
+                      <strong style={{ color: theme.accent }}>
+                        {groqModel || "None"}
+                      </strong>
+                    </span>
+                    <button
+                      style={{
+                        ...styles.saveBtn,
+                        background: theme.bgHover,
+                        color: theme.textSecondary,
+                        border: `1px solid ${theme.border}`,
+                        marginTop: "10px",
+                        alignSelf: "flex-start",
+                      }}
+                      onClick={fetchAvailableGroqModels}
+                      disabled={loadingGroqModels}
+                    >
+                      {loadingGroqModels ? "Fetching..." : "Fetch Available Models from Groq"}
+                    </button>
+
+                    {/* ✅ FIX: m.id استعمال کریں (m.name نہیں) */}
+                    {availableGroqModels.length > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "6px",
+                          marginTop: "10px",
+                          maxHeight: "200px",
+                          overflowY: "auto",
+                        }}
+                      >
+                        <span style={{ ...styles.fieldHint, color: theme.textMuted, marginBottom: "4px" }}>
+                          Click a model to select it:
+                        </span>
+                        {availableGroqModels.map((m) => (
+                          <button
+                            key={m.id}
+                            style={{
+                              ...styles.techBtn,
+                              background: groqModel === m.id ? theme.accentLight : theme.bgCard,
+                              border: groqModel === m.id ? `1.5px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                              color: groqModel === m.id ? theme.accent : theme.textSecondary,
+                              justifyContent: "flex-start",
+                              textAlign: "left",
+                            }}
+                            onClick={() => setGroqModel(m.id)}
+                          >
+                            {m.id}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ─── Gemini Settings ─── */}
+              {provider === "gemini" && (
+                <div style={providerStyles.box}>
+                  <div style={{ ...providerStyles.title, color: theme.textSecondary }}>
+                    Google Gemini Configuration
+                  </div>
+                  <div style={styles.field}>
+                    <label style={{ ...styles.label, color: theme.textSecondary }}>
+                      API Key
+                    </label>
+                    <div style={styles.inputRow}>
+                      <input
+                        style={{
+                          ...styles.input,
+                          background: theme.bgInput,
+                          border: `1px solid ${theme.border}`,
+                          color: theme.textPrimary,
+                        }}
+                        type={showGeminiKey ? "text" : "password"}
+                        value={geminiApiKey}
+                        onChange={(e) => setGeminiApiKey(e.target.value)}
+                        placeholder="AIza..."
+                      />
+                      <button
+                        style={{
+                          ...styles.toggleBtn,
+                          background: theme.bgHover,
+                          border: `1px solid ${theme.border}`,
+                          color: theme.textSecondary,
+                        }}
+                        onClick={() => setShowGeminiKey(!showGeminiKey)}
+                      >
+                        {showGeminiKey ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                    <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+                      Get free API key from aistudio.google.com
+                    </span>
+                  </div>
+                  {/* ✅ FIX: Duplicate nested div ہٹا دیا */}
+                  <div style={styles.field}>
+                    <label style={{ ...styles.label, color: theme.textSecondary }}>
+                      Model Name
+                    </label>
+                    <input
+                      style={{
+                        ...styles.input,
+                        background: theme.bgInput,
+                        border: `1px solid ${theme.border}`,
+                        color: theme.textPrimary,
+                        fontFamily: "Monaco, Menlo, monospace",
+                      }}
+                      value={geminiModel}
+                      onChange={(e) => setGeminiModel(e.target.value)}
+                      placeholder="e.g., gemini-1.5-flash"
+                    />
+                    <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+                      Currently selected:{" "}
+                      <strong style={{ color: theme.accent }}>
+                        {geminiModel || "None"}
+                      </strong>
+                    </span>
+                    <button
+                      style={{
+                        ...styles.saveBtn,
+                        background: theme.bgHover,
+                        color: theme.textSecondary,
+                        border: `1px solid ${theme.border}`,
+                        marginTop: "10px",
+                        alignSelf: "flex-start",
+                      }}
+                      onClick={fetchAvailableModels}
+                      disabled={loadingModels}
+                    >
+                      {loadingModels ? "Fetching..." : "Fetch Available Models from Google"}
+                    </button>
+                    {availableModels.length > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "6px",
+                          marginTop: "10px",
+                          maxHeight: "200px",
+                          overflowY: "auto",
+                        }}
+                      >
+                        <span style={{ ...styles.fieldHint, color: theme.textMuted, marginBottom: "4px" }}>
+                          Click a model to select it:
+                        </span>
+                        {availableModels.map((m) => (
+                          <button
+                            key={m.id}
+                            style={{
+                              ...styles.techBtn,
+                              background: geminiModel === m.id ? theme.accentLight : theme.bgCard,
+                              border: geminiModel === m.id ? `1.5px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                              color: geminiModel === m.id ? theme.accent : theme.textSecondary,
+                              justifyContent: "flex-start",
+                              textAlign: "left",
+                            }}
+                            onClick={() => setGeminiModel(m.id)}
+                          >
+                            {m.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ─── Ollama Settings ─── */}
+              {provider === "ollama" && (
+                <div style={providerStyles.box}>
+                  <div style={{ ...providerStyles.title, color: theme.textSecondary }}>
+                    Ollama Configuration
+                  </div>
+                  <div
+                    style={{
+                      ...providerStyles.notice,
+                      background: theme.accentLight,
+                      border: `1px solid ${theme.accent}33`,
+                      color: theme.textSecondary,
+                    }}
+                  >
+                    Ollama must be running on your machine. Install from ollama.com and run a model before connecting.
+                  </div>
+                  <div style={styles.field}>
+                    <label style={{ ...styles.label, color: theme.textSecondary }}>
+                      Server URL
+                    </label>
+                    <input
+                      style={{
+                        ...styles.input,
+                        background: theme.bgInput,
+                        border: `1px solid ${theme.border}`,
+                        color: theme.textPrimary,
+                        fontFamily: "Monaco, Menlo, monospace",
+                      }}
+                      value={ollamaUrl}
+                      onChange={(e) => setOllamaUrl(e.target.value)}
+                      placeholder="http://localhost:11434"
+                    />
+                  </div>
+                  <div style={styles.field}>
+                    <label style={{ ...styles.label, color: theme.textSecondary }}>
+                      Model Name
+                    </label>
+                    <input
+                      style={{
+                        ...styles.input,
+                        background: theme.bgInput,
+                        border: `1px solid ${theme.border}`,
+                        color: theme.textPrimary,
+                        fontFamily: "Monaco, Menlo, monospace",
+                      }}
+                      value={ollamaModel}
+                      onChange={(e) => setOllamaModel(e.target.value)}
+                      placeholder="llama3.2"
+                    />
+                    <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+                      Run: ollama pull llama3.2
+                    </span>
+                    {/* ✅ نیا: Ollama models fetch button */}
+                    <button
+                      style={{
+                        ...styles.saveBtn,
+                        background: theme.bgHover,
+                        color: theme.textSecondary,
+                        border: `1px solid ${theme.border}`,
+                        marginTop: "10px",
+                        alignSelf: "flex-start",
+                      }}
+                      onClick={fetchAvailableOllamaModels}
+                      disabled={loadingModels}
+                    >
+                      {loadingModels ? "Fetching..." : "Fetch Installed Models"}
+                    </button>
+                    {availableModels.length > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "6px",
+                          marginTop: "10px",
+                          maxHeight: "200px",
+                          overflowY: "auto",
+                        }}
+                      >
+                        <span style={{ ...styles.fieldHint, color: theme.textMuted, marginBottom: "4px" }}>
+                          Click a model to select it:
+                        </span>
+                        {availableModels.map((m) => (
+                          <button
+                            key={m.id}
+                            style={{
+                              ...styles.techBtn,
+                              background: ollamaModel === m.id ? theme.accentLight : theme.bgCard,
+                              border: ollamaModel === m.id ? `1.5px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                              color: ollamaModel === m.id ? theme.accent : theme.textSecondary,
+                              justifyContent: "flex-start",
+                              textAlign: "left",
+                            }}
+                            onClick={() => setOllamaModel(m.id)}
+                          >
+                            {m.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-            {isSelected && (
-              <div style={{ ...styles.checkCircle, background: theme.accent }}>
-                <Check size={12} color="#fff" />
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
+          )}
 
-    {/* Groq Settings */}
-    {provider === "groq" && (
-      <div style={providerStyles.box}>
-        <div style={{ ...providerStyles.title, color: theme.textSecondary }}>
-          Groq Configuration
-        </div>
-
-        <div style={styles.field}>
-          <label style={{ ...styles.label, color: theme.textSecondary }}>
-            API Key
-          </label>
-          <div style={styles.inputRow}>
-            <input
-              style={{
-                ...styles.input,
-                background: theme.bgInput,
-                border: `1px solid ${theme.border}`,
-                color: theme.textPrimary,
-              }}
-              type={showGroqKey ? "text" : "password"}
-              value={groqApiKey}
-              onChange={(e) => setGroqApiKey(e.target.value)}
-              placeholder="gsk_..."
-            />
-            <button
-              style={{
-                ...styles.toggleBtn,
-                background: theme.bgHover,
-                border: `1px solid ${theme.border}`,
-                color: theme.textSecondary,
-              }}
-              onClick={() => setShowGroqKey(!showGroqKey)}
-            >
-              {showGroqKey ? "Hide" : "Show"}
-            </button>
-          </div>
-          <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
-            Get free API key from console.groq.com
-          </span>
-        </div>
-
-        <div style={styles.field}>
-  <label style={{ ...styles.label, color: theme.textSecondary }}>
-    Model Name
-  </label>
-
-  {/* کسٹم ان پٹ - یہاں جو بھی لکھیں گے وہی سیٹ ہوگا */}
-  <input
-    style={{
-      ...styles.input,
-      background: theme.bgInput,
-      border: `1px solid ${theme.border}`,
-      color: theme.textPrimary,
-      fontFamily: "Monaco, Menlo, monospace",
-    }}
-    value={groqModel}
-    onChange={(e) => setGroqModel(e.target.value)}
-    placeholder="e.g., llama-3.3-70b-versatile or type custom model"
-  />
-  <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
-    Currently selected: <strong style={{color: theme.accent}}>{groqModel || "None"}</strong>
-  </span>
-
-  {/* فیچ بٹن */}
-  <button
-    style={{
-      ...styles.saveBtn,
-      background: theme.bgHover,
-      color: theme.textSecondary,
-      border: `1px solid ${theme.border}`,
-      marginTop: "10px",
-      alignSelf: "flex-start",
-    }}
-    onClick={fetchAvailableGroqModels}
-    disabled={loadingGroqModels}
-  >
-    {loadingGroqModels ? "Fetching..." : "🔄 Fetch Available Models from Groq"}
-  </button>
-
-  {/* فیچ کی گئی لسٹ */}
-  {availableGroqModels.length > 0 && (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: "6px",
-      marginTop: "10px",
-      maxHeight: "200px",
-      overflowY: "auto"
-    }}>
-      <span style={{ ...styles.fieldHint, color: theme.textMuted, marginBottom: "4px" }}>
-        Click a model to select it:
-      </span>
-      {availableGroqModels.map((m) => (
-        <button
-          key={m.id}
-          style={{
-            ...styles.techBtn,
-            background: groqModel === m.id ? theme.accentLight : theme.bgCard,
-            border: groqModel === m.id ? `1.5px solid ${theme.accent}` : `1px solid ${theme.border}`,
-            color: groqModel === m.id ? theme.accent : theme.textSecondary,
-            justifyContent: "flex-start",
-            textAlign: "left",
-          }}
-          onClick={() => setGroqModel(m.id)}
-        >
-          {m.name}
-        </button>
-      ))}
-    </div>
-  )}
-</div>
-      </div>
-    )}
-
-    {/* Gemini Settings */}
-    {provider === "gemini" && (
-      <div style={providerStyles.box}>
-        <div style={{ ...providerStyles.title, color: theme.textSecondary }}>
-          Google Gemini Configuration
-        </div>
-
-        <div style={styles.field}>
-          <label style={{ ...styles.label, color: theme.textSecondary }}>
-            API Key
-          </label>
-          <div style={styles.inputRow}>
-            <input
-              style={{
-                ...styles.input,
-                background: theme.bgInput,
-                border: `1px solid ${theme.border}`,
-                color: theme.textPrimary,
-              }}
-              type={showGeminiKey ? "text" : "password"}
-              value={geminiApiKey}
-              onChange={(e) => setGeminiApiKey(e.target.value)}
-              placeholder="AIza..."
-            />
-            <button
-              style={{
-                ...styles.toggleBtn,
-                background: theme.bgHover,
-                border: `1px solid ${theme.border}`,
-                color: theme.textSecondary,
-              }}
-              onClick={() => setShowGeminiKey(!showGeminiKey)}
-            >
-              {showGeminiKey ? "Hide" : "Show"}
-            </button>
-          </div>
-          <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
-            Get free API key from aistudio.google.com
-          </span>
-        </div>
-
-        <div style={styles.field}>
-          <div style={styles.field}>
-  <label style={{ ...styles.label, color: theme.textSecondary }}>
-    Model Name
-  </label>
-
-  {/* کسٹم ان پٹ - یہاں جو بھی لکھیں گے وہی سیٹ ہوگا */}
-  <input
-    style={{
-      ...styles.input,
-      background: theme.bgInput,
-      border: `1px solid ${theme.border}`,
-      color: theme.textPrimary,
-      fontFamily: "Monaco, Menlo, monospace",
-    }}
-    value={geminiModel}
-    onChange={(e) => setGeminiModel(e.target.value)}
-    placeholder="e.g., gemini-1.5-flash or type custom model"
-  />
-  <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
-    Currently selected: <strong style={{color: theme.accent}}>{geminiModel || "None"}</strong>
-  </span>
-
-  {/* فیچ بٹن */}
-  <button
-    style={{
-      ...styles.saveBtn,
-      background: theme.bgHover,
-      color: theme.textSecondary,
-      border: `1px solid ${theme.border}`,
-      marginTop: "10px",
-      alignSelf: "flex-start",
-    }}
-    onClick={fetchAvailableModels}
-    disabled={loadingModels}
-  >
-    {loadingModels ? "Fetching..." : "🔄 Fetch Available Models from Google"}
-  </button>
-
-  {/* فیچ کی گئی لسٹ */}
-  {availableModels.length > 0 && (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: "6px",
-      marginTop: "10px",
-      maxHeight: "200px",
-      overflowY: "auto"
-    }}>
-      <span style={{ ...styles.fieldHint, color: theme.textMuted, marginBottom: "4px" }}>
-        Click a model to select it:
-      </span>
-      {availableModels.map((m) => (
-        <button
-          key={m.id}
-          style={{
-            ...styles.techBtn,
-            background: geminiModel === m.id ? theme.accentLight : theme.bgCard,
-            border: geminiModel === m.id ? `1.5px solid ${theme.accent}` : `1px solid ${theme.border}`,
-            color: geminiModel === m.id ? theme.accent : theme.textSecondary,
-            justifyContent: "flex-start",
-            textAlign: "left",
-          }}
-          onClick={() => setGeminiModel(m.id)}
-        >
-          {m.name}
-        </button>
-      ))}
-    </div>
-  )}
-</div>
-        </div>
-      </div>
-    )}
-
-    {/* Ollama Settings */}
-    {provider === "ollama" && (
-      <div style={providerStyles.box}>
-        <div style={{ ...providerStyles.title, color: theme.textSecondary }}>
-          Ollama Configuration
-        </div>
-
-        <div
-          style={{
-            ...providerStyles.notice,
-            background: theme.accentLight,
-            border: `1px solid ${theme.accent}33`,
-            color: theme.textSecondary,
-          }}
-        >
-          Ollama must be running on your machine. Install from ollama.com and run a model before connecting.
-        </div>
-
-        <div style={styles.field}>
-          <label style={{ ...styles.label, color: theme.textSecondary }}>
-            Server URL
-          </label>
-          <input
-            style={{
-              ...styles.input,
-              background: theme.bgInput,
-              border: `1px solid ${theme.border}`,
-              color: theme.textPrimary,
-              fontFamily: "Monaco, Menlo, monospace",
-            }}
-            value={ollamaUrl}
-            onChange={(e) => setOllamaUrl(e.target.value)}
-            placeholder="http://localhost:11434/v1"
-          />
-        </div>
-
-        <div style={styles.field}>
-          <label style={{ ...styles.label, color: theme.textSecondary }}>
-            Model Name
-          </label>
-          <input
-            style={{
-              ...styles.input,
-              background: theme.bgInput,
-              border: `1px solid ${theme.border}`,
-              color: theme.textPrimary,
-              fontFamily: "Monaco, Menlo, monospace",
-            }}
-            value={ollamaModel}
-            onChange={(e) => setOllamaModel(e.target.value)}
-            placeholder="llama3.2"
-          />
-          <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
-            Run: ollama pull llama3.2
-          </span>
-        </div>
-      </div>
-    )}
-  </div>
-)}
-
-          {/* API Keys */}
-          {activeSection === "api" && (
-          <div style={styles.section}>
-          <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
-           API Keys
-          </h3>
-          <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
-          API keys are now configured in the AI Model section. Select your provider there to enter your API key.
-          </p>
-      <button
-      style={{
-        ...styles.saveBtn,
-        background: theme.accent,
-        color: "#fff",
-        alignSelf: "flex-start",
-        marginTop: "8px",
-        border: "none",
-        padding: "10px 20px",
-        cursor: "pointer",
-      }}
-      onClick={() => setActiveSection("model")}
-    >
-      Go to AI Model
-    </button>
-  </div>
-)}
-
-          {/* Agent Mode */}
+          {/* ═══ Agent Mode ═══ */}
           {activeSection === "agentmode" && (
             <div style={styles.section}>
               <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
@@ -828,20 +872,10 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
                         )}
                       </div>
                       <div style={styles.cardInfo}>
-                        <span
-                          style={{
-                            ...styles.cardTitle,
-                            color: theme.textPrimary,
-                          }}
-                        >
+                        <span style={{ ...styles.cardTitle, color: theme.textPrimary }}>
                           {mode.label}
                         </span>
-                        <span
-                          style={{
-                            ...styles.cardDesc,
-                            color: theme.textMuted,
-                          }}
-                        >
+                        <span style={{ ...styles.cardDesc, color: theme.textMuted }}>
                           {mode.desc}
                         </span>
                       </div>
@@ -852,7 +886,7 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
             </div>
           )}
 
-          {/* Appearance */}
+          {/* ═══ Appearance ═══ */}
           {activeSection === "appearance" && (
             <div style={styles.section}>
               <h3 style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
@@ -877,15 +911,11 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
                         key={t.id}
                         style={{
                           ...styles.themeBtn,
-                          background: isSelected
-                            ? theme.accentLight
-                            : theme.bgCard,
+                          background: isSelected ? theme.accentLight : theme.bgCard,
                           border: isSelected
                             ? `2px solid ${theme.accent}`
                             : `1px solid ${theme.border}`,
-                          color: isSelected
-                            ? theme.accent
-                            : theme.textSecondary,
+                          color: isSelected ? theme.accent : theme.textSecondary,
                         }}
                         onClick={() => onThemeChange(t.id)}
                       >
@@ -910,7 +940,9 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
               onClick={saveSettings}
             >
               {saved ? (
-                <><Check size={14} /> Saved!</>
+                <>
+                  <Check size={14} /> Saved!
+                </>
               ) : (
                 "Save Changes"
               )}
@@ -922,6 +954,9 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════
 const styles = {
   container: {
     flex: 1,
@@ -1126,44 +1161,5 @@ const styles = {
     fontWeight: "500",
     cursor: "pointer",
     transition: "all 0.15s",
-  },
-  fetchBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    padding: "8px 14px",
-    borderRadius: "8px",
-    fontSize: "12px",
-    cursor: "pointer",
-    marginTop: "8px",
-  },
-  errorBox: {
-    marginTop: "10px",
-  },
-  modelsList: {
-    marginTop: "10px",
-  },
-  modelsTitle: {
-    fontSize: "12px",
-    fontWeight: "600",
-    marginBottom: "8px",
-  },
-  modelItem: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2px",
-    padding: "8px 10px",
-    borderRadius: "6px",
-    cursor: "pointer",
-    marginBottom: "6px",
-    textAlign: "left",
-    width: "100%",
-  },
-  modelName: {
-    fontSize: "13px",
-    fontWeight: "500",
-  },
-  modelDesc: {
-    fontSize: "11px",
   },
 };

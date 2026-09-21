@@ -12,24 +12,23 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-// پروجیکٹ کی type سے port کا اندازہ (package.json سے)
+// ═══════════════════════════════════════════════════════
+// PORT DETECTION (package.json سے)
+// ✅ readFile استعمال کریں (readFileContent نہیں)
+// ═══════════════════════════════════════════════════════
 async function detectPort(project) {
   if (!project) return 3000;
-  
+
   try {
-    // package.json پڑھیں
     const packageJsonPath = `${project.path}/package.json`;
+
+    // ✅ readFile استعمال کریں — پوری path کے ساتھ
     const response = await window.electronAPI.readFile(packageJsonPath);
-    
+
     if (!response.success) {
-      // Fallback: نام سے اندازہ
-      const name = (project.name || "").toLowerCase();
-      if (name.includes("next")) return 3000;
-      if (name.includes("vite") || name.includes("react")) return 5173;
-      if (name.includes("expo")) return 8081;
-      return 3000;
+      return getDefaultPort(project.name);
     }
-    
+
     const packageJson = JSON.parse(response.content);
     const deps = {
       ...packageJson.dependencies,
@@ -37,11 +36,12 @@ async function detectPort(project) {
     };
     const scripts = packageJson.scripts || {};
     const devScript = scripts.dev || "";
-    
+
     // Port explicitly mentioned ہے؟
-    const portMatch = devScript.match(/--port\s+(\d+)/) || devScript.match(/-p\s+(\d+)/);
+    const portMatch = devScript.match(/--port\s+(\d+)/) ||
+                     devScript.match(/-p\s+(\d+)/);
     if (portMatch) return parseInt(portMatch[1]);
-    
+
     // Framework سے اندازہ
     if (deps["next"]) return 3000;
     if (deps["vite"] || deps["@vitejs/plugin-react"]) return 5173;
@@ -49,35 +49,74 @@ async function detectPort(project) {
     if (deps["@angular/cli"]) return 4200;
     if (deps["vue"] || deps["@vue/cli-service"]) return 5173;
     if (deps["create-react-app"] || deps["react-scripts"]) return 3000;
-    
-    return 3000; // Default
+
+    return 3000;
   } catch (error) {
     console.error("Error detecting port:", error);
-    return 3000;
+    return getDefaultPort(project.name);
   }
 }
 
+function getDefaultPort(name) {
+  const lower = (name || "").toLowerCase();
+  if (lower.includes("next")) return 3000;
+  if (lower.includes("vite") || lower.includes("react")) return 5173;
+  if (lower.includes("expo")) return 8081;
+  return 3000;
+}
+
+// ═══════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═══════════════════════════════════════════════════════
 export default function PreviewPanel({ activeProject, onClose }) {
   const { theme } = useTheme();
   const [url, setUrl] = useState("");
   const [customUrl, setCustomUrl] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [device, setDevice] = useState("desktop"); // desktop, tablet, mobile
+  const [device, setDevice] = useState("desktop");
   const iframeRef = useRef(null);
+  const timeoutRef = useRef(null); // ✅ نیا: timeout tracking کے لیے
 
+  // جب project بدلے تو preview setup کریں
   useEffect(() => {
-  async function setupPreview() {
-    if (activeProject) {
-      // یہاں await لگانا ضروری ہے کیونکہ detectPort ایک async function ہے
-      const port = await detectPort(activeProject);
-      const defaultUrl = `http://localhost:${port}`;
-      setUrl(defaultUrl);
-      setCustomUrl(defaultUrl);
+    async function setupPreview() {
+      if (activeProject) {
+        setIsLoading(true);
+        setHasError(false);
+        const port = await detectPort(activeProject);
+        const defaultUrl = `http://localhost:${port}`;
+        setUrl(defaultUrl);
+        setCustomUrl(defaultUrl);
+      }
     }
-  }
-  setupPreview();
-}, [activeProject?.id]);
+    setupPreview();
+  }, [activeProject?.id]);
+
+  // ✅ نیا: Timeout-based error detection
+  useEffect(() => {
+    if (!url) return;
+
+    // پرانا timeout clear کریں
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    setIsLoading(true);
+    setHasError(false);
+
+    // 15 seconds بعد اگر load نہ ہو تو error
+    timeoutRef.current = setTimeout(() => {
+      setHasError(true);
+      setIsLoading(false);
+    }, 15000);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [url]);
 
   function handleRefresh() {
     setIsLoading(true);
@@ -96,9 +135,17 @@ export default function PreviewPanel({ activeProject, onClose }) {
     }
   }
 
+  // ✅ نیا: Load ہونے پر timeout clear کریں
+  function handleIframeLoad() {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    setIsLoading(false);
+    setHasError(false);
+  }
+
   function openExternal() {
     window.electronAPI?.openExternal?.(url);
-    // fallback
     window.open(url, "_blank");
   }
 
@@ -109,12 +156,7 @@ export default function PreviewPanel({ activeProject, onClose }) {
   };
 
   return (
-    <div
-      style={{
-        ...styles.container,
-        background: theme.bgMain,
-      }}
-    >
+    <div style={{ ...styles.container, background: theme.bgMain }}>
       {/* Header */}
       <div
         style={{
@@ -148,8 +190,7 @@ export default function PreviewPanel({ activeProject, onClose }) {
                 key={d.id}
                 style={{
                   ...styles.deviceBtn,
-                  background:
-                    device === d.id ? theme.accentLight : "transparent",
+                  background: device === d.id ? theme.accentLight : "transparent",
                   color: device === d.id ? theme.accent : theme.textMuted,
                 }}
                 onClick={() => setDevice(d.id)}
@@ -164,30 +205,21 @@ export default function PreviewPanel({ activeProject, onClose }) {
         {/* Actions */}
         <div style={{ display: "flex", gap: "4px" }}>
           <button
-            style={{
-              ...styles.actionBtn,
-              color: theme.textMuted,
-            }}
+            style={{ ...styles.actionBtn, color: theme.textMuted }}
             onClick={handleRefresh}
             title="Refresh"
           >
             <RefreshCw size={13} />
           </button>
           <button
-            style={{
-              ...styles.actionBtn,
-              color: theme.textMuted,
-            }}
+            style={{ ...styles.actionBtn, color: theme.textMuted }}
             onClick={openExternal}
             title="Open in browser"
           >
             <ExternalLink size={13} />
           </button>
           <button
-            style={{
-              ...styles.actionBtn,
-              color: theme.textMuted,
-            }}
+            style={{ ...styles.actionBtn, color: theme.textMuted }}
             onClick={onClose}
             title="Close"
           >
@@ -229,19 +261,14 @@ export default function PreviewPanel({ activeProject, onClose }) {
       </form>
 
       {/* Preview Area */}
-      <div
-        style={{
-          ...styles.previewArea,
-          background: theme.bgInput,
-        }}
-      >
+      <div style={{ ...styles.previewArea, background: theme.bgInput }}>
         <div
           style={{
             ...styles.iframeWrapper,
             maxWidth: deviceWidths[device],
           }}
         >
-          {isLoading && (
+          {isLoading && !hasError && (
             <div style={styles.loadingOverlay}>
               <Loader
                 size={24}
@@ -251,8 +278,12 @@ export default function PreviewPanel({ activeProject, onClose }) {
               <span style={{ color: theme.textMuted, fontSize: "13px" }}>
                 Loading preview...
               </span>
+              <span style={{ color: theme.textMuted, fontSize: "11px" }}>
+                Make sure your dev server is running
+              </span>
             </div>
           )}
+
           {hasError && (
             <div style={styles.errorOverlay}>
               <AlertCircle size={32} color={theme.error} />
@@ -260,7 +291,7 @@ export default function PreviewPanel({ activeProject, onClose }) {
                 Preview not available
               </span>
               <span style={{ color: theme.textMuted, fontSize: "12px" }}>
-                Make sure your dev server is running
+                Make sure your dev server is running at {url}
               </span>
               <button
                 style={{
@@ -274,14 +305,13 @@ export default function PreviewPanel({ activeProject, onClose }) {
               </button>
             </div>
           )}
+
+          {/* ✅ iframe — allow-same-origin رکھا گیا ہے */}
           <iframe
             ref={iframeRef}
             src={url}
             style={styles.iframe}
-            onLoad={() => {
-              setIsLoading(false);
-              setHasError(false);
-            }}
+            onLoad={handleIframeLoad}
             onError={() => {
               setIsLoading(false);
               setHasError(true);
@@ -302,6 +332,9 @@ export default function PreviewPanel({ activeProject, onClose }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════
 const styles = {
   container: {
     flex: 1,

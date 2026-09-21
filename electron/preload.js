@@ -1,105 +1,139 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
+// ═══════════════════════════════════════════════════════
+// ✅ SAFE API — React کو صرف یہی methods ملیں گی
+// ═══════════════════════════════════════════════════════
 contextBridge.exposeInMainWorld("electronAPI", {
-  // Agent
-  sendMessage: (message, projectPath, instructions, projectId) =>
-  ipcRenderer.invoke("chat-message", { message, projectPath, instructions, projectId }),
-  listFiles: (projectPath, subPath) =>
-    ipcRenderer.invoke("list-files", { projectPath, subPath }),
-  resetAgent: (projectPath, projectId) =>
-  ipcRenderer.invoke("reset-agent", { projectPath, projectId }),
 
-  // Folder picker
+  // ─── Agent / Chat ───────────────────────────────────
+  sendMessage: (message, projectPath, instructions, projectId) =>
+    ipcRenderer.invoke("chat-message", {
+      message, projectPath, instructions, projectId
+    }),
+
+  resetAgent: (projectPath, projectId) =>
+    ipcRenderer.invoke("reset-agent", { projectPath, projectId }),
+
+  // ─── Files (Agent side) ─────────────────────────────
+  listFiles: (projectPath, subPath, projectId) =>
+    ipcRenderer.invoke("list-files", { projectPath, subPath, projectId }),
+
+  // ─── Folder Picker ──────────────────────────────────
   selectFolder: () =>
     ipcRenderer.invoke("select-folder"),
 
-  // Projects
+  // ─── Projects ───────────────────────────────────────
   getProjects: () =>
     ipcRenderer.invoke("get-projects"),
+
   saveProjects: (projects) =>
     ipcRenderer.invoke("save-projects", { projects }),
 
-  // Chats
+  // ─── Chats ──────────────────────────────────────────
   getChats: (projectId) =>
     ipcRenderer.invoke("get-chats", { projectId }),
+
   saveChat: (projectId, chat) =>
     ipcRenderer.invoke("save-chat", { projectId, chat }),
+
   deleteChat: (projectId, chatId) =>
     ipcRenderer.invoke("delete-chat", { projectId, chatId }),
 
-  // Instructions
+  renameChat: (projectId, chatId, newTitle) =>
+    ipcRenderer.invoke("rename-chat", { projectId, chatId, newTitle }),
+
+  // ─── Instructions ───────────────────────────────────
   getInstructions: (projectId) =>
     ipcRenderer.invoke("get-instructions", { projectId }),
+
   saveInstructions: (projectId, instructions) =>
     ipcRenderer.invoke("save-instructions", { projectId, instructions }),
 
-  // Attachments
+  // ─── Attachments ────────────────────────────────────
   readAttachment: (filePath) =>
     ipcRenderer.invoke("read-attachment", { filePath }),
 
-  // Settings
+  // ─── Settings ───────────────────────────────────────
   getSettings: () =>
     ipcRenderer.invoke("get-settings"),
+
   saveSettings: (settings) =>
     ipcRenderer.invoke("save-settings", { settings }),
 
-  // Tool Status
-  onToolStatus: (callback) =>
-  ipcRenderer.on("tool-status", (event, data) => callback(data)),
-  removeToolStatusListener: () =>
-  ipcRenderer.removeAllListeners("tool-status"),
-
-  // Knowledge Files
+  // ─── Knowledge Files ────────────────────────────────
   getKnowledgeFiles: (projectId) =>
-  ipcRenderer.invoke("get-knowledge-files", { projectId }),
+    ipcRenderer.invoke("get-knowledge-files", { projectId }),
+
   saveKnowledgeFile: (projectId, file) =>
-  ipcRenderer.invoke("save-knowledge-file", { projectId, file }),
+    ipcRenderer.invoke("save-knowledge-file", { projectId, file }),
+
   deleteKnowledgeFile: (projectId, fileName) =>
-  ipcRenderer.invoke("delete-knowledge-file", { projectId, fileName }),
+    ipcRenderer.invoke("delete-knowledge-file", { projectId, fileName }),
 
-  // Project Memory - Add/Remove
-  addProjectMemory: (projectId, category, item) =>
-  ipcRenderer.invoke("add-project-memory", { projectId, category, item }),
-  removeProjectMemory: (projectId, category, item) =>
-  ipcRenderer.invoke("remove-project-memory", { projectId, category, item }),
-
-   // Project Memory
+  // ─── Project Memory ─────────────────────────────────
   getProjectMemory: (projectId) =>
-  ipcRenderer.invoke("get-project-memory", { projectId }),
+    ipcRenderer.invoke("get-project-memory", { projectId }),
 
-  // Rename Chat
-  renameChat: (projectId, chatId, newTitle) =>
-  ipcRenderer.invoke("rename-chat", { projectId, chatId, newTitle }),
+  addProjectMemory: (projectId, category, item) =>
+    ipcRenderer.invoke("add-project-memory", { projectId, category, item }),
 
-  // Stream listeners
-  onChatStream: (callback) =>
-    ipcRenderer.on("chat-stream", (event, data) => callback(data)),
-  removeChatStreamListener: () =>
-    ipcRenderer.removeAllListeners("chat-stream"),
+  removeProjectMemory: (projectId, category, item) =>
+    ipcRenderer.invoke("remove-project-memory", { projectId, category, item }),
 
-  // File Explorer
+  // ─── 🆕 Active Plan (نئے!) ─────────────────────────
+  getActivePlan: (projectId) =>
+    ipcRenderer.invoke("get-active-plan", { projectId }),
+
+  saveActivePlan: (projectId, plan) =>
+    ipcRenderer.invoke("save-active-plan", { projectId, plan }),
+
+  // ─── File Explorer ──────────────────────────────────
   listFilesTree: (projectPath) =>
-  ipcRenderer.invoke("list-files-tree", { projectPath }),
+    ipcRenderer.invoke("list-files-tree", { projectPath }),
+
   readFileContent: (projectPath, filePath) =>
-  ipcRenderer.invoke("read-file-content", { projectPath, filePath }),
+    ipcRenderer.invoke("read-file-content", { projectPath, filePath }),
 
-  // ExportChate
+  // ✅ Read file (for port detection etc.)
+  readFile: (filePath) =>
+    ipcRenderer.invoke("read-file", { filePath }),
+
+  // ─── Export Chat ────────────────────────────────────
   exportChat: (chat) =>
-  ipcRenderer.invoke("export-chat", { chat }),
+    ipcRenderer.invoke("export-chat", { chat }),
 
-  // Fetch available Gemini models
-fetchGeminiModels: (apiKey) =>
-  ipcRenderer.invoke("fetch-gemini-models", { apiKey }),
-  // Fetch available Groq models
+  // ─── Fetch Available Models ─────────────────────────
+  fetchGeminiModels: (apiKey) =>
+    ipcRenderer.invoke("fetch-gemini-models", { apiKey }),
+
   fetchGroqModels: (apiKey) =>
     ipcRenderer.invoke("fetch-groq-models", { apiKey }),
 
-    // Window Controls
+  // ✅ نیا: Ollama models fetch
+  fetchOllamaModels: () =>
+    ipcRenderer.invoke("fetch-ollama-models"),
+
+  // ─── Stream Listeners ───────────────────────────────
+  onChatStream: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on("chat-stream", listener);
+    return listener; // ✅ تاکہ بعد میں remove کر سکیں
+  },
+
+  removeChatStreamListener: () =>
+    ipcRenderer.removeAllListeners("chat-stream"),
+
+  onToolStatus: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on("tool-status", listener);
+    return listener;
+  },
+
+  removeToolStatusListener: () =>
+    ipcRenderer.removeAllListeners("tool-status"),
+
+  // ─── Window Controls ────────────────────────────────
   minimizeWindow: () => ipcRenderer.invoke("minimize-window"),
   maximizeWindow: () => ipcRenderer.invoke("maximize-window"),
   closeWindow: () => ipcRenderer.invoke("close-window"),
-
-    // Read file (Auto-Detect Port کے لیے)
-  readFile: (filePath) =>
-    ipcRenderer.invoke("read-file", { filePath }),
 });

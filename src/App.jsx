@@ -12,7 +12,6 @@ import PreviewPanel from "./components/PreviewPanel";
 
 export default function App() {
   const { theme, mode, toggleTheme } = useTheme();
-
   const {
     projects,
     activeProject,
@@ -20,7 +19,6 @@ export default function App() {
     removeProject,
     switchProject,
   } = useProjects();
-
   const {
     chats,
     activeChat,
@@ -37,11 +35,19 @@ export default function App() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [toolStatuses, setToolStatuses] = useState([]);
   const [showFiles, setShowFiles] = useState(false);
-  const abortRef = useRef(false);
   const [showPreview, setShowPreview] = useState(false);
 
+  // ✅ FIX: Refs — race condition اور stop handling کے لیے
+  const abortRef = useRef(false);
+  const isSendingRef = useRef(false); // ✅ نیا: lock mechanism
+  const currentChatIdRef = useRef(null); // ✅ نیا: track current chat
+
+  // ═══════════════════════════════════════════════════════
+  // LISTENERS SETUP (✅ Proper cleanup)
+  // ═══════════════════════════════════════════════════════
   useEffect(() => {
-    window.electronAPI.onToolStatus((data) => {
+    // Tool status listener
+    const toolListener = window.electronAPI.onToolStatus((data) => {
       setToolStatuses((prev) => {
         const existing = prev.findIndex(
           (t) =>
@@ -57,100 +63,174 @@ export default function App() {
       });
     });
 
-    // streaming listener
-    window.electronAPI.onChatStream((data) => {
+    // Streaming listener
+    const chatListener = window.electronAPI.onChatStream((data) => {
       if (data.type === "chunk") {
         setStreamingContent((prev) => prev + data.chunk);
       } else if (data.type === "done") {
         setStreamingContent("");
       } else if (data.type === "tool") {
         setStreamingContent("");
+      } else if (data.type === "error") {
+        // ✅ نیا: Error handling
+        setStreamingContent("");
+        setIsThinking(false);
+        isSendingRef.current = false;
       }
     });
 
+    // ✅ Cleanup function — component unmount پر listeners ہٹائیں
     return () => {
       window.electronAPI.removeToolStatusListener();
       window.electronAPI.removeChatStreamListener();
     };
   }, []);
 
-  // project switch پر dashboard کھولیں
+  // ═══════════════════════════════════════════════════════
+  // VIEW SWITCHING
+  // ═══════════════════════════════════════════════════════
   async function handleSwitchProject(project) {
     await switchProject(project);
     setShowDashboard(true);
     setShowSettings(false);
+    setShowFiles(false);
+    setShowPreview(false);
   }
 
-  // chat select کریں — dashboard بند کریں
   function handleSelectChat(chat) {
     setActiveChat(chat);
     setShowDashboard(false);
+    currentChatIdRef.current = chat.id; // ✅ Track current chat
   }
 
-  // new chat
   async function handleNewChat(projectId) {
     await newChat(projectId);
     setShowDashboard(false);
   }
 
+  // ✅ FIX: Stop message — صحیح طریقے سے
   function handleStopMessage() {
     abortRef.current = true;
     setIsThinking(false);
+    isSendingRef.current = false; // ✅ Lock release
+    setStreamingContent("");
+    setToolStatuses([]);
   }
 
+  // ═══════════════════════════════════════════════════════
+  // SEND MESSAGE (✅ Race condition fix)
+  // ═══════════════════════════════════════════════════════
   async function handleSendMessage(fullMessage, displayMessage) {
     if (!activeChat || !activeProject) return;
+
+    // ✅ Lock check — اگر پہلے سے کوئی message بھیج رہا ہے تو wait کریں
+    if (isSendingRef.current) {
+      console.warn("⚠️ Already sending a message. Please wait.");
+      return;
+    }
+
+    // ✅ Lock acquire
+    isSendingRef.current = true;
     abortRef.current = false;
     setToolStatuses([]);
     setStreamingContent("");
 
-    // Instructions ہمیشہ load کریں
-    const instrResult = await window.electronAPI.getInstructions(activeProject.id);
-    const instructions = instrResult.success ? instrResult.instructions : "";
+    try {
+      // Instructions load کریں
+      const instrResult = await window.electronAPI.getInstructions(activeProject.id);
+      const instructions = instrResult.success ? instrResult.instructions : "";
 
-    // ✅ KNOWLEDGE FILES: صرف پہلے میسج میں (ٹوکنز کی بچت)
-    let knowledgeContext = "";
-    const isFirstMessage = activeChat.messages.length <= 1;
+      // ✅ KNOWLEDGE FILES: صرف پہلے message میں (tokens بچانے کے لیے)
+      let knowledgeContext = "";
+      const isFirstMessage = activeChat.messages.length <= 1;
 
-    if (isFirstMessage) {
-      const knowledgeResult = await window.electronAPI.getKnowledgeFiles(activeProject.id);
-      if (knowledgeResult.success && knowledgeResult.files.length > 0) {
-        knowledgeContext = "\n\nPROJECT BLUEPRINT (Reference only):\n" +
-          knowledgeResult.files.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n");
+      if (isFirstMessage) {
+        const knowledgeResult = await window.electronAPI.getKnowledgeFiles(activeProject.id);
+        if (knowledgeResult.success && knowledgeResult.files.length > 0) {
+          knowledgeContext =
+            "\n\nPROJECT BLUEPRINT (Reference only):\n" +
+            knowledgeResult.files
+              .map((f) => `--- ${f.name} ---\n${f.content}`)
+              .join("\n\n");
+        }
       }
+
+      const fullMessageWithKnowledge = fullMessage + knowledgeContext;
+
+      // User message add کریں
+      const updatedChat = {
+        ...activeChat,
+        messages: [
+          ...activeChat.messages,
+          { role: "user", content: displayMessage },
+        ],
+        title:
+          activeChat.title === "New Chat"
+            ? displayMessage.slice(0, 30)
+            : activeChat.title,
+        updatedAt: Date.now(),
+      };
+
+      await updateChat(activeProject.id, updatedChat);
+      setIsThinking(true);
+
+      // Agent کو message بھیجیں
+      const result = await window.electronAPI.sendMessage(
+        fullMessageWithKnowledge,
+        activeProject.path,
+        instructions,
+        activeProject.id
+      );
+
+      // ✅ Check: user نے stop کر دیا؟
+      if (abortRef.current) {
+        setIsThinking(false);
+        setStreamingContent("");
+        return;
+      }
+
+      // Agent response
+      const agentMessage = {
+        role: result.success ? "agent" : "system",
+        content: result.success
+          ? result.response
+          : `Error: ${result.error}`,
+      };
+
+      // Final chat update
+      const finalChat = {
+        ...updatedChat,
+        messages: [...updatedChat.messages, agentMessage],
+        updatedAt: Date.now(),
+      };
+
+      await updateChat(activeProject.id, finalChat);
+    } catch (error) {
+      console.error("❌ Error in handleSendMessage:", error);
+
+      // Error message add کریں
+      const errorChat = {
+        ...activeChat,
+        messages: [
+          ...activeChat.messages,
+          { role: "user", content: displayMessage },
+          { role: "system", content: `Error: ${error.message}` },
+        ],
+        updatedAt: Date.now(),
+      };
+      await updateChat(activeProject.id, errorChat);
+    } finally {
+      // ✅ Lock release — ہر حال میں
+      setIsThinking(false);
+      setStreamingContent("");
+      setToolStatuses([]);
+      isSendingRef.current = false;
     }
-
-    const fullMessageWithKnowledge = fullMessage + knowledgeContext;
-
-    const updatedChat = {
-      ...activeChat,
-      messages: [...activeChat.messages, { role: "user", content: displayMessage }],
-      title: activeChat.title === "New Chat" ? displayMessage.slice(0, 30) : activeChat.title,
-      updatedAt: Date.now(),
-    };
-    await updateChat(activeProject.id, updatedChat);
-    setIsThinking(true);
-
-    const result = await window.electronAPI.sendMessage(
-      fullMessageWithKnowledge,
-      activeProject.path,
-      instructions,
-      activeProject.id
-    );
-
-    if (abortRef.current) { setIsThinking(false); setStreamingContent(""); return; }
-
-    const agentMessage = {
-      role: result.success ? "agent" : "system",
-      content: result.success ? result.response : `Error: ${result.error}`,
-    };
-    const finalChat = { ...updatedChat, messages: [...updatedChat.messages, agentMessage], updatedAt: Date.now() };
-    await updateChat(activeProject.id, finalChat);
-    setIsThinking(false);
-    setStreamingContent("");
   }
 
-  // main area کیا دکھائیں
+  // ═══════════════════════════════════════════════════════
+  // RENDER MAIN AREA
+  // ═══════════════════════════════════════════════════════
   function renderMainArea() {
     if (showSettings) {
       return (
@@ -161,22 +241,24 @@ export default function App() {
         />
       );
     }
+
     if (showPreview) {
-    return (
-    <PreviewPanel
-    activeProject={activeProject}
-    onClose={() => setShowPreview(false)}
-    />
-     );
-     }
+      return (
+        <PreviewPanel
+          activeProject={activeProject}
+          onClose={() => setShowPreview(false)}
+        />
+      );
+    }
+
     if (showFiles) {
-    return (
-    <FileExplorer
-      activeProject={activeProject}
-      onClose={() => setShowFiles(false)}
-     />
-     );
-     }
+      return (
+        <FileExplorer
+          activeProject={activeProject}
+          onClose={() => setShowFiles(false)}
+        />
+      );
+    }
 
     if (showDashboard && activeProject) {
       return (
@@ -191,7 +273,6 @@ export default function App() {
       );
     }
 
-
     return (
       <ChatArea
         activeProject={activeProject}
@@ -205,54 +286,104 @@ export default function App() {
     );
   }
 
+  // ═══════════════════════════════════════════════════════
+  // MAIN RENDER
+  // ═══════════════════════════════════════════════════════
   return (
     <div style={{ ...styles.container, background: theme.bgMain }}>
       {/* Header */}
-      <div style={{ ...styles.header, background: theme.bgCard, borderBottom: `1px solid ${theme.border}`, boxShadow: theme.shadow }}>
-  {/* ڈریگ ایبل ایریا - ونڈو کو یہاں سے گھمائیں */}
-  <div style={{ ...styles.headerLeft, WebkitAppRegion: "drag", flex: 1 }}>
-    <Bot size={20} color={theme.accent} />
-    <span style={{ ...styles.headerTitle, color: theme.textPrimary }}>My Coding Agent</span>
-  </div>
-
-  <div style={{ ...styles.headerRight, WebkitAppRegion: "no-drag" }}>
-    {activeProject && !showSettings && !showDashboard && (
-      <span style={{ ...styles.headerStatus, color: theme.success, background: theme.successBg }}>● Online</span>
-    )}
-
-    {/* Theme Toggle */}
-    <button style={{ ...styles.themeToggle, background: theme.bgHover, color: theme.textSecondary }} onClick={() => toggleTheme(mode === "light" ? "dark" : "light")} title="Toggle theme">
-      {mode === "light" ? <Moon size={15} /> : <Sun size={15} />}
-    </button>
-
-    {/* Window Controls */}
-    <div style={{ display: "flex", gap: "4px", marginLeft: "12px" }}>
-      <button
-        style={{ ...styles.windowBtn, background: "transparent", color: theme.textMuted }}
-        onClick={() => window.electronAPI.minimizeWindow()}
-        title="Minimize"
+      <div
+        style={{
+          ...styles.header,
+          background: theme.bgCard,
+          borderBottom: `1px solid ${theme.border}`,
+          boxShadow: theme.shadow,
+        }}
       >
-        <Minus size={14} />
-      </button>
-      <button
-        style={{ ...styles.windowBtn, background: "transparent", color: theme.textMuted }}
-        onClick={() => window.electronAPI.maximizeWindow()}
-        title="Maximize/Restore"
-      >
-        <Maximize2 size={14} />
-      </button>
-      <button
-        style={{ ...styles.windowBtn, background: "transparent", color: theme.textMuted }}
-        onClick={() => window.electronAPI.closeWindow()}
-        title="Close"
-        onMouseEnter={(e) => { e.currentTarget.style.background = "#ef4444"; e.currentTarget.style.color = "#fff"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = theme.textMuted; }}
-      >
-        <X size={14} />
-      </button>
-    </div>
-  </div>
-</div>
+        {/* ڈریگ ایبل ایریا */}
+        <div
+          style={{ ...styles.headerLeft, WebkitAppRegion: "drag", flex: 1 }}
+        >
+          <Bot size={20} color={theme.accent} />
+          <span style={{ ...styles.headerTitle, color: theme.textPrimary }}>
+            My Coding Agent
+          </span>
+        </div>
+
+        <div style={{ ...styles.headerRight, WebkitAppRegion: "no-drag" }}>
+          {activeProject && !showSettings && !showDashboard && (
+            <span
+              style={{
+                ...styles.headerStatus,
+                color: theme.success,
+                background: theme.successBg,
+              }}
+            >
+              ● Online
+            </span>
+          )}
+
+          {/* Theme Toggle */}
+          <button
+            style={{
+              ...styles.themeToggle,
+              background: theme.bgHover,
+              color: theme.textSecondary,
+            }}
+            onClick={() => toggleTheme(mode === "light" ? "dark" : "light")}
+            title="Toggle theme"
+          >
+            {mode === "light" ? <Moon size={15} /> : <Sun size={15} />}
+          </button>
+
+          {/* Window Controls */}
+          <div style={{ display: "flex", gap: "4px", marginLeft: "12px" }}>
+            <button
+              style={{
+                ...styles.windowBtn,
+                background: "transparent",
+                color: theme.textMuted,
+              }}
+              onClick={() => window.electronAPI.minimizeWindow()}
+              title="Minimize"
+            >
+              <Minus size={14} />
+            </button>
+            <button
+              style={{
+                ...styles.windowBtn,
+                background: "transparent",
+                color: theme.textMuted,
+              }}
+              onClick={() => window.electronAPI.maximizeWindow()}
+              title="Maximize/Restore"
+            >
+              <Maximize2 size={14} />
+            </button>
+            <button
+              style={{
+                ...styles.windowBtn,
+                background: "transparent",
+                color: theme.textMuted,
+              }}
+              onClick={() => window.electronAPI.closeWindow()}
+              title="Close"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#ef4444";
+                e.currentTarget.style.color = "#fff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = theme.textMuted;
+              }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main */}
       <div style={styles.main}>
         <Sidebar
           projects={projects}
@@ -273,29 +404,30 @@ export default function App() {
             setShowPreview(false);
           }}
           showSettings={showSettings}
-          onOpenFiles={() => {     // ← نیا
-          setShowFiles(true);
-          setShowSettings(false);
-          setShowDashboard(false);
-          setShowPreview(false);
+          onOpenFiles={() => {
+            setShowFiles(true);
+            setShowSettings(false);
+            setShowDashboard(false);
+            setShowPreview(false);
           }}
-          showFiles={showFiles}    // ← نیا
+          showFiles={showFiles}
           onOpenPreview={() => {
-          setShowPreview(true);
-          setShowSettings(false);
-          setShowDashboard(false);
-          setShowFiles(false);
+            setShowPreview(true);
+            setShowSettings(false);
+            setShowDashboard(false);
+            setShowFiles(false);
           }}
           showPreview={showPreview}
-          />
-
-
+        />
         {renderMainArea()}
       </div>
     </div>
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════
 const styles = {
   container: {
     display: "flex",
@@ -308,7 +440,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    WebkitAppRegion: "drag", // پورا ہیڈر ڈریگ ایبل
+    WebkitAppRegion: "drag",
     flexShrink: 0,
   },
   headerLeft: {
@@ -321,7 +453,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "10px",
-    WebkitAppRegion: "no-drag", // بٹنز ڈریگ ایبل نہیں ہونے چاہئیں
+    WebkitAppRegion: "no-drag",
   },
   windowBtn: {
     border: "none",

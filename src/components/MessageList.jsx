@@ -5,6 +5,9 @@ import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight, oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
+// ═══════════════════════════════════════════════════════
+// CODE BLOCK COMPONENT
+// ═══════════════════════════════════════════════════════
 function CodeBlock({ language, code, theme, mode }) {
   const [copied, setCopied] = useState(false);
 
@@ -44,23 +47,29 @@ function CodeBlock({ language, code, theme, mode }) {
           {copied ? "Copied!" : "Copy"}
         </button>
       </div>
-      <SyntaxHighlighter
-        language={language || "javascript"}
-        style={mode === "dark" ? oneDark : oneLight}
-        customStyle={{
-          margin: 0,
-          padding: "14px 16px",
-          background: "transparent",
-          fontSize: "13px",
-          lineHeight: "1.6",
-        }}
-      >
-        {code}
-      </SyntaxHighlighter>
+      {/* ✅ FIX: Code block ہمیشہ LTR رہے گا — Urdu text بھی */}
+      <div style={{ direction: "ltr", textAlign: "left" }}>
+        <SyntaxHighlighter
+          language={language || "javascript"}
+          style={mode === "dark" ? oneDark : oneLight}
+          customStyle={{
+            margin: 0,
+            padding: "14px 16px",
+            background: "transparent",
+            fontSize: "13px",
+            lineHeight: "1.6",
+          }}
+        >
+          {code}
+        </SyntaxHighlighter>
+      </div>
     </div>
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// TOOL STATUS COMPONENT
+// ═══════════════════════════════════════════════════════
 function ToolStatusItem({ tool, status, input, theme }) {
   const getToolInfo = () => {
     switch (tool) {
@@ -99,21 +108,26 @@ function ToolStatusItem({ tool, status, input, theme }) {
   );
 }
 
-// اردو/عربی ٹیکسٹ ڈیٹیکٹ کریں
+// ═══════════════════════════════════════════════════════
+// URDU DETECTION
+// ═══════════════════════════════════════════════════════
 function isUrduText(text) {
   return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text);
 }
 
+// ═══════════════════════════════════════════════════════
+// AGENT MESSAGE COMPONENT
+// ═══════════════════════════════════════════════════════
 function AgentMessage({ content, theme, mode }) {
   const hasUrdu = isUrduText(content);
-  
+
   return (
-    <div 
-      style={{ 
-        ...agentStyles.container, 
+    <div
+      style={{
+        ...agentStyles.container,
         color: theme.textPrimary,
-        fontFamily: hasUrdu 
-          ? "'Noto Nastaliq Urdu', serif" 
+        fontFamily: hasUrdu
+          ? "'Noto Nastaliq Urdu', serif"
           : "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
         fontWeight: hasUrdu ? 500 : 400,
         lineHeight: hasUrdu ? "1.9" : "1.7",
@@ -128,6 +142,7 @@ function AgentMessage({ content, theme, mode }) {
             const match = /language-(\w+)/.exec(className || "");
             const language = match ? match[1] : "";
             const code = String(children).replace(/\n$/, "");
+
             if (!inline && (match || code.includes("\n"))) {
               return (
                 <CodeBlock
@@ -145,6 +160,9 @@ function AgentMessage({ content, theme, mode }) {
                   background: theme.bgHover,
                   color: theme.accent,
                   border: `1px solid ${theme.border}`,
+                  // ✅ FIX: Inline code ہمیشہ LTR
+                  direction: "ltr",
+                  unicodeBidi: "embed",
                 }}
                 {...props}
               >
@@ -190,7 +208,8 @@ function AgentMessage({ content, theme, mode }) {
               <blockquote
                 style={{
                   ...agentStyles.blockquote,
-                  borderLeft: `3px solid ${theme.accent}`,
+                  borderLeft: hasUrdu ? "none" : `3px solid ${theme.accent}`,
+                  borderRight: hasUrdu ? `3px solid ${theme.accent}` : "none",
                   background: theme.accentLight,
                   color: theme.textSecondary,
                 }}
@@ -213,6 +232,9 @@ function AgentMessage({ content, theme, mode }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// MAIN MESSAGE LIST COMPONENT
+// ═══════════════════════════════════════════════════════
 export default function MessageList({ messages, isThinking, toolStatuses, streamingContent }) {
   const { theme, mode } = useTheme();
   const endRef = useRef(null);
@@ -225,49 +247,53 @@ export default function MessageList({ messages, isThinking, toolStatuses, stream
     <div style={{ ...styles.container, background: theme.bgMain }}>
       {messages.map((msg, index) => (
         <div key={index}>
+          {/* ─── USER MESSAGE ─── */}
           {msg.role === "user" && (
-  <div style={styles.userWrapper}>
-    <div
-      style={{
-        ...styles.userCard,
-        background: theme.msgUser,
-        color: theme.msgUserText,
-        position: "relative",
-      }}
-    >
-      <div style={styles.userContent}>{msg.content}</div>
-      <button
-        style={{
-          position: "absolute",
-          bottom: "6px",
-          right: "8px",
-          background: "theme.shadow",
-          border: "none",
-          borderRadius: "6px",
-          padding: "4px 8px",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          gap: "4px",
-          fontSize: "11px",
-          color: "textPrimary",
-          opacity: 0,
-          transition: "opacity 0.2s",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
-        onClick={() => {
-          navigator.clipboard.writeText(msg.content);
-        }}
-        title="Copy message"
-      >
-        <Copy size={11} />
-        Copy
-      </button>
-    </div>
-  </div>
-)}
+            <div style={styles.userWrapper}>
+              <div
+                style={{
+                  ...styles.userCard,
+                  background: theme.msgUser,
+                  color: theme.msgUserText,
+                  position: "relative",
+                }}
+              >
+                <div style={styles.userContent}>{msg.content}</div>
+                <button
+                  style={{
+                    position: "absolute",
+                    bottom: "6px",
+                    right: "8px",
+                    // ✅ FIX: "theme.shadow" (string) → theme.shadow (variable)
+                    background: theme.shadow,
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "4px 8px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    fontSize: "11px",
+                    // ✅ FIX: "textPrimary" (string) → theme.textPrimary (variable)
+                    color: theme.textPrimary,
+                    opacity: 0,
+                    transition: "opacity 0.2s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
+                  onClick={() => {
+                    navigator.clipboard.writeText(msg.content);
+                  }}
+                  title="Copy message"
+                >
+                  <Copy size={11} />
+                  Copy
+                </button>
+              </div>
+            </div>
+          )}
 
+          {/* ─── AGENT MESSAGE ─── */}
           {msg.role === "agent" && (
             <div style={styles.agentWrapper}>
               <div
@@ -288,106 +314,106 @@ export default function MessageList({ messages, isThinking, toolStatuses, stream
             </div>
           )}
 
-{msg.role === "system" && (
-  <div style={styles.systemWrapper}>
-    <div
-      style={{
-        position: "relative",
-        display: "inline-block",
-      }}
-    >
-      <span
-        style={{
-          ...styles.systemMsg,
-          background: theme.errorBg,
-          color: theme.error,
-          display: "block",
-          padding: "8px 14px",
-          borderRadius: "8px",
-          fontSize: "12px",
-          lineHeight: "1.6",
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          maxWidth: "500px",
-        }}
-      >
-        {msg.content}
-      </span>
-      <button
-        style={{
-          position: "absolute",
-          bottom: "4px",
-          right: "6px",
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          padding: "2px",
-          color: theme.error,
-          opacity: 0.7,
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
-        onClick={() => {
-          navigator.clipboard.writeText(msg.content);
-        }}
-        title="Copy error"
-      >
-        <Copy size={11} />
-      </button>
-    </div>
-  </div>
-)}
+          {/* ─── SYSTEM MESSAGE ─── */}
+          {msg.role === "system" && (
+            <div style={styles.systemWrapper}>
+              <div
+                style={{
+                  position: "relative",
+                  display: "inline-block",
+                }}
+              >
+                <span
+                  style={{
+                    ...styles.systemMsg,
+                    background: theme.errorBg,
+                    color: theme.error,
+                    display: "block",
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    lineHeight: "1.6",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    maxWidth: "500px",
+                  }}
+                >
+                  {msg.content}
+                </span>
+                <button
+                  style={{
+                    position: "absolute",
+                    bottom: "4px",
+                    right: "6px",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "2px",
+                    color: theme.error,
+                    opacity: 0.7,
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+                  onClick={() => {
+                    navigator.clipboard.writeText(msg.content);
+                  }}
+                  title="Copy error"
+                >
+                  <Copy size={11} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ))}
 
-      {/* Thinking */}
+      {/* ─── THINKING INDICATOR ─── */}
       {isThinking && (
-  <div style={styles.agentWrapper}>
-    <div
-      style={{
-        ...styles.agentAvatar,
-        background: theme.bgHover,
-        color: theme.textSecondary,
-      }}
-    >
-      <Bot size={15} />
-    </div>
-    <div style={styles.agentContent}>
-      <span style={{ ...styles.agentName, color: theme.textMuted }}>
-        Coder
-      </span>
-
-      {/* Streaming content */}
-      {streamingContent ? (
-        <AgentMessage
-          content={streamingContent}
-          theme={theme}
-          mode={mode}
-        />
-      ) : toolStatuses && toolStatuses.length > 0 ? (
-        <div style={toolStyles.container}>
-          {toolStatuses.map((ts, i) => (
-            <ToolStatusItem
-              key={i}
-              tool={ts.tool}
-              status={ts.status}
-              input={ts.input}
-              theme={theme}
-            />
-          ))}
-        </div>
-      ) : (
-        <div style={styles.thinkingDots}>
-          <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "0ms" }} />
-          <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "150ms" }} />
-          <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "300ms" }} />
+        <div style={styles.agentWrapper}>
+          <div
+            style={{
+              ...styles.agentAvatar,
+              background: theme.bgHover,
+              color: theme.textSecondary,
+            }}
+          >
+            <Bot size={15} />
+          </div>
+          <div style={styles.agentContent}>
+            <span style={{ ...styles.agentName, color: theme.textMuted }}>
+              Coder
+            </span>
+            {/* Streaming content */}
+            {streamingContent ? (
+              <AgentMessage
+                content={streamingContent}
+                theme={theme}
+                mode={mode}
+              />
+            ) : toolStatuses && toolStatuses.length > 0 ? (
+              <div style={toolStyles.container}>
+                {toolStatuses.map((ts, i) => (
+                  <ToolStatusItem
+                    key={i}
+                    tool={ts.tool}
+                    status={ts.status}
+                    input={ts.input}
+                    theme={theme}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={styles.thinkingDots}>
+                <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "0ms" }} />
+                <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "150ms" }} />
+                <span style={{ ...styles.dot, background: theme.textMuted, animationDelay: "300ms" }} />
+              </div>
+            )}
+          </div>
         </div>
       )}
-    </div>
-  </div>
-)}
 
       <div ref={endRef} />
 
@@ -405,6 +431,9 @@ export default function MessageList({ messages, isThinking, toolStatuses, stream
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════
 const styles = {
   container: {
     flex: 1,
@@ -428,11 +457,11 @@ const styles = {
     fontFamily: "'Segoe UI', 'Noto Nastaliq Urdu', Arial, sans-serif",
   },
   userContent: {
-  whiteSpace: "pre-wrap",
-  wordBreak: "break-word",
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
-  lineHeight: "1.7",
-},
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
+    lineHeight: "1.7",
+  },
   agentWrapper: {
     display: "flex",
     alignItems: "flex-start",
@@ -485,8 +514,7 @@ const styles = {
   },
 };
 
-
-  const agentStyles = {
+const agentStyles = {
   container: {
     fontSize: "15px",
     lineHeight: "1.8",
@@ -502,7 +530,6 @@ const styles = {
     wordBreak: "break-word",
     lineHeight: "1.8",
   },
-  // باقی سب ویسے ہی رہیں
   heading: {
     fontWeight: "700",
     margin: "16px 0 8px 0",

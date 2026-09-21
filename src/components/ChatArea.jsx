@@ -14,45 +14,23 @@ export default function ChatArea({
   streamingContent,
 }) {
   const { theme } = useTheme();
-  const [showSettings, setShowSettings] = useState(false);
-  const [instructions, setInstructions] = useState("");
-  const [savedInstructions, setSavedInstructions] = useState("");
-  const [isEditingInstructions, setIsEditingInstructions] = useState(false);
+  // ✅ ہٹایا گیا: showSettings, instructions, savedInstructions, isEditingInstructions (dead code)
   const [attachments, setAttachments] = useState([]);
 
   useEffect(() => {
     if (activeProject) {
-      loadInstructions();
+      // ✅ ہٹایا گیا: loadInstructions() call (UI میں use نہیں ہو رہا)
       setAttachments([]);
     }
   }, [activeProject?.id]);
 
-  async function loadInstructions() {
-    const result = await window.electronAPI.getInstructions(activeProject.id);
-    if (result.success) {
-      setInstructions(result.instructions);
-      setSavedInstructions(result.instructions);
-    }
-  }
-
-  async function saveInstructions() {
-    await window.electronAPI.saveInstructions(activeProject.id, instructions);
-    await window.electronAPI.resetAgent(activeProject.path, activeProject.id);
-    setSavedInstructions(instructions);
-    setIsEditingInstructions(false);
-  }
-
-  function cancelEdit() {
-    setInstructions(savedInstructions);
-    setIsEditingInstructions(false);
-  }
+  // ✅ ہٹایا گیا: loadInstructions, saveInstructions, cancelEdit functions (dead code)
 
   async function handleAddAttachment() {
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.accept = ".js,.jsx,.ts,.tsx,.css,.html,.json,.md,.txt";
     fileInput.multiple = true;
-
     fileInput.onchange = async (e) => {
       const files = Array.from(e.target.files);
       for (const file of files) {
@@ -65,7 +43,6 @@ export default function ChatArea({
         setAttachments((prev) => [...prev, { name: file.name, content }]);
       }
     };
-
     fileInput.click();
   }
 
@@ -75,12 +52,7 @@ export default function ChatArea({
 
   if (!activeProject) {
     return (
-      <div
-        style={{
-          ...styles.welcome,
-          background: theme.bgMain,
-        }}
-      >
+      <div style={{ ...styles.welcome, background: theme.bgMain }}>
         <div style={styles.welcomeContent}>
           <div
             style={{
@@ -128,37 +100,36 @@ export default function ChatArea({
 
   return (
     <div style={{ ...styles.container, background: theme.bgMain }}>
+      {/* Header — چیٹ کا نام باکس میں */}
+      <div
+        style={{
+          ...styles.header,
+          background: "transparent",
+          borderBottom: "none",
+          boxShadow: "none",
+          justifyContent: "center",
+          padding: "14px 20px 8px",
+        }}
+      >
+        <div
+          style={{
+            background: theme.bgCard,
+            border: `1px solid ${theme.border}`,
+            borderRadius: "20px",
+            padding: "6px 16px",
+            boxShadow: theme.shadow,
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+          }}
+        >
+          <MessageSquare size={13} color={theme.textMuted} />
+          <span style={{ ...styles.chatTitle, color: theme.textSecondary }}>
+            {activeChat.title}
+          </span>
+        </div>
+      </div>
 
-       {/* Header */}
-       {/* Header — چیٹ کا نام باکس میں */}
-<div
-  style={{
-    ...styles.header,
-    background: "transparent",
-    borderBottom: "none",
-    boxShadow: "none",
-    justifyContent: "center",
-    padding: "14px 20px 8px",
-  }}
-  >
-  <div
-    style={{
-      background: theme.bgCard,
-      border: `1px solid ${theme.border}`,
-      borderRadius: "20px",
-      padding: "6px 16px",
-      boxShadow: theme.shadow,
-      display: "flex",
-      alignItems: "center",
-      gap: "6px",
-    }}
-    >
-    <MessageSquare size={13} color={theme.textMuted} />
-    <span style={{ ...styles.chatTitle, color: theme.textSecondary }}>
-      {activeChat.title}
-    </span>
-  </div>
-</div>
       {/* Messages */}
       <MessageList
         messages={activeChat.messages}
@@ -179,6 +150,9 @@ export default function ChatArea({
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════
 const styles = {
   container: {
     flex: 1,
@@ -238,164 +212,9 @@ const styles = {
     gap: "10px",
     flexShrink: 0,
   },
-  headerInfo: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2px",
-    flex: 1,
-  },
-  projectName: {
-    fontSize: "13px",
-    fontWeight: "600",
-    lineHeight: 1,
-  },
-  projectPath: {
-    fontSize: "11px",
-    fontFamily: "Monaco, Menlo, monospace",
-    lineHeight: 1,
-  },
-  settingsBtn: {
-    border: "none",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    padding: "6px",
-    borderRadius: "8px",
-  },
-  settingsPanel: {
-    padding: "16px 20px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "14px",
-    maxHeight: "340px",
-    overflowY: "auto",
-    flexShrink: 0,
-  },
-  settingsHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  settingsTitle: {
-    fontSize: "13px",
-    fontWeight: "600",
-  },
-  closeBtn: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    padding: "2px",
-  },
-  settingsBlock: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-    paddingTop: "12px",
-  },
-  blockHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  blockLabel: {
-    fontSize: "12px",
-    fontWeight: "600",
-  },
-  editBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-    padding: "4px 10px",
-    borderRadius: "6px",
-    fontSize: "12px",
-    cursor: "pointer",
-  },
-  instructionsTextarea: {
-    width: "100%",
-    height: "90px",
-    padding: "10px 12px",
-    borderRadius: "8px",
-    fontSize: "13px",
-    fontFamily: "inherit",
-    resize: "vertical",
-    outline: "none",
-    lineHeight: "1.6",
-    boxSizing: "border-box",
-  },
-  instructionsBtns: {
-    display: "flex",
-    gap: "8px",
-    justifyContent: "flex-end",
-  },
-  cancelBtn: {
-    padding: "6px 14px",
-    borderRadius: "7px",
-    fontSize: "12px",
-    cursor: "pointer",
-  },
-  saveBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: "5px",
-    padding: "6px 14px",
-    border: "none",
-    borderRadius: "7px",
-    fontSize: "12px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  instructionsPreview: {
-    padding: "10px 12px",
-    borderRadius: "8px",
-    minHeight: "40px",
-  },
-  instructionsText: {
-    fontSize: "12px",
-    lineHeight: "1.6",
-    whiteSpace: "pre-wrap",
-    margin: 0,
-    fontFamily: "inherit",
-  },
-  emptyText: {
-    fontSize: "12px",
-  },
-  attachmentsList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "6px",
-  },
-  attachmentItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "8px 12px",
-    borderRadius: "8px",
-  },
-  attachmentName: {
-    flex: 1,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    fontSize: "12px",
-  },
-  attachmentSize: {
-    fontSize: "11px",
-    flexShrink: 0,
-  },
-  removeBtn: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    padding: "2px",
-  },
-
   chatTitle: {
-  fontSize: "16px",
-  fontWeight: "550",
-  letterSpacing: "0.3px",
-},
+    fontSize: "16px",
+    fontWeight: "550",
+    letterSpacing: "0.3px",
+  },
 };

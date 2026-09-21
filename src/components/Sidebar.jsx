@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   FolderOpen,
   Plus,
@@ -12,10 +12,13 @@ import {
   Edit2,
   FolderTree,
   Eye,
+  X,
 } from "lucide-react";
 import { useTheme } from "../ThemeContext";
 
-// Three dot menu
+// ═══════════════════════════════════════════════════════
+// THREE DOT MENU COMPONENT
+// ═══════════════════════════════════════════════════════
 function ThreeDotMenu({ items, theme }) {
   const [open, setOpen] = useState(false);
 
@@ -36,10 +39,13 @@ function ThreeDotMenu({ items, theme }) {
 
       {open && (
         <>
+          {/* Overlay — باہر click کرنے پر menu بند ہو جائے */}
           <div
             style={menuStyles.overlay}
             onClick={() => setOpen(false)}
           />
+
+          {/* Menu */}
           <div
             style={{
               ...menuStyles.menu,
@@ -72,7 +78,9 @@ function ThreeDotMenu({ items, theme }) {
   );
 }
 
-// Rename modal
+// ═══════════════════════════════════════════════════════
+// RENAME MODAL COMPONENT
+// ═══════════════════════════════════════════════════════
 function RenameModal({ title, value, onSave, onClose, theme }) {
   const [text, setText] = useState(value);
 
@@ -90,7 +98,14 @@ function RenameModal({ title, value, onSave, onClose, theme }) {
           <span style={{ ...modalStyles.title, color: theme.textPrimary }}>
             {title}
           </span>
+          <button
+            style={{ ...modalStyles.closeBtn, color: theme.textMuted }}
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
         </div>
+
         <input
           style={{
             ...modalStyles.input,
@@ -106,6 +121,7 @@ function RenameModal({ title, value, onSave, onClose, theme }) {
             if (e.key === "Escape") onClose();
           }}
         />
+
         <div style={modalStyles.buttons}>
           <button
             style={{
@@ -134,6 +150,9 @@ function RenameModal({ title, value, onSave, onClose, theme }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// MAIN SIDEBAR COMPONENT
+// ═══════════════════════════════════════════════════════
 export default function Sidebar({
   projects,
   activeProject,
@@ -148,10 +167,10 @@ export default function Sidebar({
   onRenameChat,
   onOpenSettings,
   showSettings,
-  onOpenFiles,    
+  onOpenFiles,
   showFiles,
-  onOpenPreview,    
-  showPreview, 
+  onOpenPreview,
+  showPreview,
 }) {
   const { theme } = useTheme();
   const [showChats, setShowChats] = useState(true);
@@ -179,7 +198,7 @@ export default function Sidebar({
         />
       )}
 
-      {/* Projects */}
+      {/* ─── Projects Section ─── */}
       <div
         style={{
           ...styles.section,
@@ -255,7 +274,7 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Chats */}
+      {/* ─── Chats Section ─── */}
       {activeProject && (
         <div
           style={{
@@ -348,95 +367,99 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* ─── Bottom Action Buttons (Files + Terminal) ─── */}
-<div style={{ marginTop: "auto" }}> {/* ← یہ لائن دونوں کو نیچے لائے گی */}
-     {/* Files Button */}
-<div
-  style={{
-    padding: "6px 12px",
-    borderTop: `1px solid ${theme.border}`,
-  }}
->
-  <button
-    style={{
-      ...styles.settingsBarBtn,
-      background: showFiles ? theme.bgActive : "transparent",
-      color: showFiles ? theme.accent : theme.textSecondary,
-    }}
-    onClick={onOpenFiles}
-  >
-    <div
-      style={{
-        width: "26px",
-        height: "26px",
-        borderRadius: "6px",
-        background: showFiles ? theme.accentLight : theme.bgHover,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
-    >
-      <FolderTree size={13} color={showFiles ? theme.accent : theme.textMuted} />
-    </div>
-    <span style={styles.settingsBarLabel}>Files</span>
-  </button>
-</div>
-
-      {/* Preview Button */}
-<div style={{ padding: "6px 12px" }}>
-  <button
-    style={{
-      ...styles.settingsBarBtn,
-      background: showPreview ? theme.bgActive : "transparent",
-      color: showPreview ? theme.accent : theme.textSecondary,
-    }}
-    onClick={onOpenPreview}
-  >
-    <div
-      style={{
-        width: "26px",
-        height: "26px",
-        borderRadius: "6px",
-        background: showPreview ? theme.accentLight : theme.bgHover,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
-    >
-      <Eye size={13} color={showPreview ? theme.accent : theme.textMuted} />
-    </div>
-    <span style={styles.settingsBarLabel}>Preview</span>
-  </button>
-</div>
-      {/* Bottom Settings */}
-      <div
-        style={{
-          ...styles.bottomBar,
-          borderTop: `1px solid ${theme.border}`,
-        }}
-      >
-        <button
+      {/* ─── Bottom Action Buttons ─── */}
+      <div style={{ marginTop: "auto" }}>
+        {/* Files Button */}
+        <div
           style={{
-            ...styles.settingsBarBtn,
-            background: showSettings ? theme.bgActive : "transparent",
-            color: showSettings ? theme.accent : theme.textSecondary,
+            padding: "6px 12px",
+            borderTop: `1px solid ${theme.border}`,
           }}
-          onClick={onOpenSettings}
         >
-          <div style={styles.userAvatar}>
-            <User size={13} color={theme.accent} />
-          </div>
-          <span style={styles.settingsBarLabel}>Rizwan</span>
-          <Settings size={14} color={theme.textMuted} />
-        </button>
-      </div>
+          <button
+            style={{
+              ...styles.settingsBarBtn,
+              background: showFiles ? theme.bgActive : "transparent",
+              color: showFiles ? theme.accent : theme.textSecondary,
+            }}
+            onClick={onOpenFiles}
+          >
+            <div
+              style={{
+                width: "26px",
+                height: "26px",
+                borderRadius: "6px",
+                background: showFiles ? theme.accentLight : theme.bgHover,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <FolderTree size={13} color={showFiles ? theme.accent : theme.textMuted} />
+            </div>
+            <span style={styles.settingsBarLabel}>Files</span>
+          </button>
+        </div>
+
+        {/* Preview Button */}
+        <div style={{ padding: "6px 12px" }}>
+          <button
+            style={{
+              ...styles.settingsBarBtn,
+              background: showPreview ? theme.bgActive : "transparent",
+              color: showPreview ? theme.accent : theme.textSecondary,
+            }}
+            onClick={onOpenPreview}
+          >
+            <div
+              style={{
+                width: "26px",
+                height: "26px",
+                borderRadius: "6px",
+                background: showPreview ? theme.accentLight : theme.bgHover,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Eye size={13} color={showPreview ? theme.accent : theme.textMuted} />
+            </div>
+            <span style={styles.settingsBarLabel}>Preview</span>
+          </button>
+        </div>
+
+        {/* Settings Button */}
+        <div
+          style={{
+            ...styles.bottomBar,
+            borderTop: `1px solid ${theme.border}`,
+          }}
+        >
+          <button
+            style={{
+              ...styles.settingsBarBtn,
+              background: showSettings ? theme.bgActive : "transparent",
+              color: showSettings ? theme.accent : theme.textSecondary,
+            }}
+            onClick={onOpenSettings}
+          >
+            <div style={styles.userAvatar}>
+              <User size={13} color={theme.accent} />
+            </div>
+            <span style={styles.settingsBarLabel}>Rizwan</span>
+            <Settings size={14} color={theme.textMuted} />
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════
 const styles = {
   sidebar: {
     width: "240px",
@@ -603,10 +626,18 @@ const modalStyles = {
   header: {
     display: "flex",
     alignItems: "center",
+    justifyContent: "space-between",
   },
   title: {
     fontSize: "15px",
     fontWeight: "600",
+  },
+  closeBtn: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
   },
   input: {
     width: "100%",

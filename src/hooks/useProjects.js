@@ -9,45 +9,64 @@ export function useProjects() {
   }, []);
 
   async function loadProjects() {
-    const result = await window.electronAPI.getProjects();
-    if (result.success && result.projects.length > 0) {
-      setProjects(result.projects);
-      setActiveProject(result.projects[0]);
+    try {
+      const result = await window.electronAPI.getProjects();
+      if (result.success && result.projects.length > 0) {
+        setProjects(result.projects);
+        setActiveProject(result.projects[0]);
+      }
+    } catch (error) {
+      console.error("Error loading projects:", error);
     }
   }
 
   async function addProject() {
-    const result = await window.electronAPI.selectFolder();
-    if (!result.success) return;
+    try {
+      const result = await window.electronAPI.selectFolder();
+      if (!result.success) return null;
 
-    const newProject = {
-      id: Date.now().toString(36),
-      name: result.name,
-      path: result.path,
-    };
+      const newProject = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+        name: result.name,
+        path: result.path,
+      };
 
-    const updated = [...projects, newProject];
-    setProjects(updated);
-    setActiveProject(newProject);
-    await window.electronAPI.saveProjects(updated);
-    await window.electronAPI.resetAgent(newProject.path, newProject.id);
+      const updated = [...projects, newProject];
+      setProjects(updated);
+      setActiveProject(newProject);
 
-    return newProject;
-  }
+      await window.electronAPI.saveProjects(updated);
 
-  async function removeProject(projectId) {
-    const updated = projects.filter((p) => p.id !== projectId);
-    setProjects(updated);
-    await window.electronAPI.saveProjects(updated);
+      // ✅ FIX: projectId بھی بھیجیں
+      await window.electronAPI.resetAgent(newProject.path, newProject.id);
 
-    if (activeProject?.id === projectId) {
-      setActiveProject(updated.length > 0 ? updated[0] : null);
+      return newProject;
+    } catch (error) {
+      console.error("Error adding project:", error);
+      return null;
     }
   }
 
+  async function removeProject(projectId) {
+    try {
+      const updated = projects.filter((p) => p.id !== projectId);
+      setProjects(updated);
+      await window.electronAPI.saveProjects(updated);
+
+      if (activeProject?.id === projectId) {
+        setActiveProject(updated.length > 0 ? updated[0] : null);
+      }
+    } catch (error) {
+      console.error("Error removing project:", error);
+    }
+  }
+
+  // ✅ FIX: projectId missing تھا
   async function switchProject(project) {
     setActiveProject(project);
-    await window.electronAPI.resetAgent(project.path);
+
+    // ✅ FIX: projectId بھی بھیجیں
+    await window.electronAPI.resetAgent(project.path, project.id);
   }
 
   return {

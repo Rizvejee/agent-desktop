@@ -15,9 +15,12 @@ import {
 } from "lucide-react";
 import { useTheme } from "../ThemeContext";
 
-// Three dot menu component
+// ═══════════════════════════════════════════════════════
+// THREE DOT MENU
+// ═══════════════════════════════════════════════════════
 function ThreeDotMenu({ items, theme }) {
   const [open, setOpen] = useState(false);
+
   return (
     <div style={{ position: "relative" }}>
       <button
@@ -64,9 +67,12 @@ function ThreeDotMenu({ items, theme }) {
   );
 }
 
-// Rename modal
+// ═══════════════════════════════════════════════════════
+// RENAME MODAL
+// ═══════════════════════════════════════════════════════
 function RenameModal({ title, value, onSave, onClose, theme }) {
   const [text, setText] = useState(value);
+
   return (
     <div style={modalStyles.overlay}>
       <div
@@ -127,14 +133,19 @@ function RenameModal({ title, value, onSave, onClose, theme }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// ADD KNOWLEDGE MODAL
+// ═══════════════════════════════════════════════════════
 function AddKnowledgeModal({ onClose, onSaveFile, onUploadFile, theme }) {
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
+
   async function handleSave() {
     if (!name.trim() || !content.trim()) return;
     await onSaveFile({ name: name.trim(), content: content.trim() });
     onClose();
   }
+
   return (
     <div style={modalStyles.overlay}>
       <div
@@ -190,7 +201,7 @@ function AddKnowledgeModal({ onClose, onSaveFile, onUploadFile, theme }) {
               }}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. project-notes.md"
+              placeholder="e.g. project-notes.txt"
             />
           </div>
           <div style={addKnowledgeStyles.field}>
@@ -240,6 +251,9 @@ function AddKnowledgeModal({ onClose, onSaveFile, onUploadFile, theme }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// MAIN PROJECT DASHBOARD COMPONENT
+// ═══════════════════════════════════════════════════════
 export default function ProjectDashboard({
   project,
   chats,
@@ -249,26 +263,23 @@ export default function ProjectDashboard({
   onRenameChat,
 }) {
   const { theme } = useTheme();
-  
-  // ✅ تمام States اب صحیح جگہ (Component کے اندر) ہیں
+
   const [activeTab, setActiveTab] = useState("chats");
   const [instructions, setInstructions] = useState("");
   const [savedInstructions, setSavedInstructions] = useState("");
   const [isEditingInstructions, setIsEditingInstructions] = useState(false);
   const [knowledgeFiles, setKnowledgeFiles] = useState([]);
   const [memory, setMemory] = useState("");
-  const [fileTree, setFileTree] = useState("");
+  // ✅ ہٹایا گیا: const [fileTree, setFileTree] = useState("");
   const [renameModal, setRenameModal] = useState(null);
   const [showAddKnowledge, setShowAddKnowledge] = useState(false);
-  const [newFileName, setNewFileName] = useState("");
-  const [newFileContent, setNewFileContent] = useState("");
-  
+
   // Memory States
   const [memoryData, setMemoryData] = useState({
     preferences: [],
     projectDecisions: [],
     completedTasks: [],
-    notes: []
+    notes: [],
   });
   const [newMemoryItem, setNewMemoryItem] = useState("");
   const [newMemoryCategory, setNewMemoryCategory] = useState("notes");
@@ -279,7 +290,7 @@ export default function ProjectDashboard({
       loadInstructions();
       loadKnowledgeFiles();
       loadMemory();
-      loadFileTree();
+      // ✅ ہٹایا گیا: loadFileTree();
     }
   }, [project?.id]);
 
@@ -337,7 +348,6 @@ export default function ProjectDashboard({
     loadKnowledgeFiles();
   }
 
-  // ✅ Duplicate loadMemory ہٹا دیا گیا ہے، صرف یہ بہتر والا رکھا گیا ہے
   async function loadMemory() {
     const result = await window.electronAPI.getProjectMemory(project.id);
     if (result.success) {
@@ -376,10 +386,7 @@ export default function ProjectDashboard({
     }
   }
 
-  async function loadFileTree() {
-    const result = await window.electronAPI.listFiles(project.path, "");
-    if (result.success) setFileTree(result.result);
-  }
+  // ✅ ہٹایا گیا: loadFileTree function
 
   const tabs = [
     { id: "chats", label: "Chats", icon: <MessageSquare size={15} /> },
@@ -402,7 +409,6 @@ export default function ProjectDashboard({
           theme={theme}
         />
       )}
-      
       {showAddKnowledge && (
         <AddKnowledgeModal
           theme={theme}
@@ -412,6 +418,7 @@ export default function ProjectDashboard({
         />
       )}
 
+      {/* Header */}
       <div style={{ ...styles.header, background: theme.bgCard, borderBottom: `1px solid ${theme.border}` }}>
         <FolderOpen size={18} color={theme.accent} />
         <div style={styles.headerInfo}>
@@ -424,8 +431,10 @@ export default function ProjectDashboard({
         </div>
       </div>
 
+      {/* Body */}
       <div style={styles.body}>
         <div style={styles.mainContent}>
+          {/* Tabs */}
           <div style={{ ...styles.tabs, borderBottom: `1px solid ${theme.border}`, background: theme.bgCard }}>
             {tabs.map((tab) => (
               <button
@@ -443,12 +452,17 @@ export default function ProjectDashboard({
             ))}
           </div>
 
+          {/* Tab Content */}
           <div style={styles.tabContent}>
+            {/* ═══ CHATS TAB ═══ */}
             {activeTab === "chats" && (
               <div style={styles.section}>
                 <div style={styles.sectionHeader}>
                   <span style={{ ...styles.sectionTitle, color: theme.textPrimary }}>Chats</span>
-                  <button style={{ ...styles.addBtn, background: theme.accent, color: "#fff" }} onClick={() => onNewChat(project.id)}>
+                  <button
+                    style={{ ...styles.addBtn, background: theme.accent, color: "#fff" }}
+                    onClick={() => onNewChat(project.id)}
+                  >
                     <Plus size={14} /> New Chat
                   </button>
                 </div>
@@ -479,9 +493,18 @@ export default function ProjectDashboard({
                           {
                             icon: <Edit2 size={13} />,
                             label: "Rename",
-                            onClick: () => setRenameModal({ title: "Rename Chat", value: chat.title, onSave: (name) => onRenameChat(project.id, chat.id, name) }),
+                            onClick: () => setRenameModal({
+                              title: "Rename Chat",
+                              value: chat.title,
+                              onSave: (name) => onRenameChat(project.id, chat.id, name),
+                            }),
                           },
-                          { icon: <Trash2 size={13} />, label: "Delete", danger: true, onClick: () => onDeleteChat(project.id, chat.id) },
+                          {
+                            icon: <Trash2 size={13} />,
+                            label: "Delete",
+                            danger: true,
+                            onClick: () => onDeleteChat(project.id, chat.id),
+                          },
                         ]}
                       />
                     </div>
@@ -490,6 +513,7 @@ export default function ProjectDashboard({
               </div>
             )}
 
+            {/* ═══ INSTRUCTIONS TAB ═══ */}
             {activeTab === "instructions" && (
               <div style={styles.section}>
                 <div style={styles.sectionHeader}>
@@ -503,7 +527,9 @@ export default function ProjectDashboard({
                     </button>
                   )}
                 </div>
-                <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>These instructions apply to all chats in this project.</p>
+                <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
+                  These instructions apply to all chats in this project.
+                </p>
                 {isEditingInstructions ? (
                   <div style={styles.editBlock}>
                     <textarea
@@ -516,11 +542,17 @@ export default function ProjectDashboard({
                     <div style={styles.editBtns}>
                       <button
                         style={{ ...styles.cancelBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
-                        onClick={() => { setInstructions(savedInstructions); setIsEditingInstructions(false); }}
+                        onClick={() => {
+                          setInstructions(savedInstructions);
+                          setIsEditingInstructions(false);
+                        }}
                       >
                         Cancel
                       </button>
-                      <button style={{ ...styles.saveBtn, background: theme.accent, color: "#fff" }} onClick={saveInstructions}>
+                      <button
+                        style={{ ...styles.saveBtn, background: theme.accent, color: "#fff" }}
+                        onClick={saveInstructions}
+                      >
                         <Check size={13} /> Save
                       </button>
                     </div>
@@ -537,15 +569,21 @@ export default function ProjectDashboard({
               </div>
             )}
 
+            {/* ═══ KNOWLEDGE TAB ═══ */}
             {activeTab === "knowledge" && (
               <div style={styles.section}>
                 <div style={styles.sectionHeader}>
                   <span style={{ ...styles.sectionTitle, color: theme.textPrimary }}>Knowledge Files</span>
-                  <button style={{ ...styles.addBtn, background: theme.accent, color: "#fff" }} onClick={() => setShowAddKnowledge(true)}>
+                  <button
+                    style={{ ...styles.addBtn, background: theme.accent, color: "#fff" }}
+                    onClick={() => setShowAddKnowledge(true)}
+                  >
                     <Plus size={14} /> Add Knowledge
                   </button>
                 </div>
-                <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>Files added here are always available to the Agent in this project.</p>
+                <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
+                  Files added here are always available to the Agent in this project.
+                </p>
                 {knowledgeFiles.length === 0 && (
                   <div style={styles.empty}>
                     <FileText size={32} color={theme.textMuted} />
@@ -554,7 +592,10 @@ export default function ProjectDashboard({
                 )}
                 <div style={styles.fileList}>
                   {knowledgeFiles.map((file) => (
-                    <div key={file.name} style={{ ...styles.fileItem, background: theme.bgCard, border: `1px solid ${theme.border}` }}>
+                    <div
+                      key={file.name}
+                      style={{ ...styles.fileItem, background: theme.bgCard, border: `1px solid ${theme.border}` }}
+                    >
                       <FileText size={15} color={theme.accent} />
                       <div style={styles.fileInfo}>
                         <span style={{ ...styles.fileName, color: theme.textPrimary }}>{file.name}</span>
@@ -564,7 +605,14 @@ export default function ProjectDashboard({
                       </div>
                       <ThreeDotMenu
                         theme={theme}
-                        items={[{ icon: <Trash2 size={13} />, label: "Delete", danger: true, onClick: () => deleteKnowledgeFile(file.name) }]}
+                        items={[
+                          {
+                            icon: <Trash2 size={13} />,
+                            label: "Delete",
+                            danger: true,
+                            onClick: () => deleteKnowledgeFile(file.name),
+                          },
+                        ]}
                       />
                     </div>
                   ))}
@@ -572,6 +620,7 @@ export default function ProjectDashboard({
               </div>
             )}
 
+            {/* ═══ MEMORY TAB ═══ */}
             {activeTab === "memory" && (
               <div style={styles.section}>
                 <div style={styles.sectionHeader}>
@@ -586,7 +635,6 @@ export default function ProjectDashboard({
                 <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
                   What the Agent has remembered about this project. Add items here or use /remember in chat.
                 </p>
-                
                 <div style={{ ...styles.preview, background: theme.bgCard, border: `1px solid ${theme.border}`, display: "flex", gap: "8px", alignItems: "center", padding: "12px" }}>
                   <select
                     value={newMemoryCategory}
@@ -621,7 +669,6 @@ export default function ProjectDashboard({
                     {addingMemory ? "..." : "Add"}
                   </button>
                 </div>
-
                 {Object.entries(memoryData).map(([category, items]) => {
                   if (!items || items.length === 0) return null;
                   const labels = {
@@ -631,16 +678,28 @@ export default function ProjectDashboard({
                     notes: "Notes",
                   };
                   return (
-                    <div key={category} style={{ background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "12px" }}>
+                    <div
+                      key={category}
+                      style={{ background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "12px" }}
+                    >
                       <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
                         <Brain size={13} color={theme.accent} />
-                        <span style={{ fontSize: "13px", fontWeight: "600", color: theme.textPrimary }}>{labels[category]}</span>
-                        <span style={{ fontSize: "11px", color: theme.textMuted }}>({items.length})</span>
+                        <span style={{ fontSize: "13px", fontWeight: "600", color: theme.textPrimary }}>
+                          {labels[category]}
+                        </span>
+                        <span style={{ fontSize: "11px", color: theme.textMuted }}>
+                          ({items.length})
+                        </span>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                         {items.map((item, idx) => (
-                          <div key={idx} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px", background: theme.bgInput, borderRadius: "6px" }}>
-                            <span style={{ flex: 1, fontSize: "13px", color: theme.textSecondary }}>{item}</span>
+                          <div
+                            key={idx}
+                            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px", background: theme.bgInput, borderRadius: "6px" }}
+                          >
+                            <span style={{ flex: 1, fontSize: "13px", color: theme.textSecondary }}>
+                              {item}
+                            </span>
                             <button
                               onClick={() => handleRemoveMemory(category, item)}
                               style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted }}
@@ -656,7 +715,6 @@ export default function ProjectDashboard({
                     </div>
                   );
                 })}
-
                 {Object.values(memoryData).every((arr) => !arr || arr.length === 0) && (
                   <div
                     style={{
@@ -686,6 +744,9 @@ export default function ProjectDashboard({
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════
 const styles = {
   container: { flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" },
   header: { padding: "14px 20px", display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 },
