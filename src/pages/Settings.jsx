@@ -376,31 +376,82 @@ Keep explanations concise.`
                 </div>
               </div>
 
+
               {/* Rules */}
-              <div style={styles.field}>
-                <label style={{ ...styles.label, color: theme.textSecondary }}>
-                  Rules & Behavior
-                </label>
-                <textarea
-                  style={{
-                    ...styles.input,
-                    background: theme.bgInput,
-                    border: `1px solid ${theme.border}`,
-                    color: theme.textPrimary,
-                    height: "120px",
-                    resize: "vertical",
-                    fontFamily: "inherit",
-                    lineHeight: "1.6",
-                    padding: "10px 14px",
-                  }}
-                  value={agentRules}
-                  onChange={(e) => setAgentRules(e.target.value)}
-                  placeholder="- Always write clean code&#10;- Follow existing architecture&#10;- No unnecessary dependencies"
-                />
-                <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
-                  Each rule on a new line. These apply to all projects.
-                </span>
-              </div>
+<div style={styles.field}>
+  <label style={{ ...styles.label, color: theme.textSecondary }}>
+    Rules & Behavior
+  </label>
+  <textarea
+    style={{
+      ...styles.input,
+      background: theme.bgInput,
+      border: `1px solid ${theme.border}`,
+      color: theme.textPrimary,
+      height: "120px",
+      resize: "vertical",
+      fontFamily: "inherit",
+      lineHeight: "1.6",
+      padding: "10px 14px",
+    }}
+    value={agentRules}
+    onChange={(e) => {
+      const value = e.target.value;
+      // ✅ 750 characters کی limit
+      if (value.length <= 750) {
+        setAgentRules(value);
+      }
+    }}
+    placeholder="- Always write clean code&#10;- Follow existing architecture&#10;- No unnecessary dependencies"
+  />
+
+  {/* ✅ Character Counter + Progress Bar */}
+  <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
+    {/* Progress Bar */}
+    <div style={{
+      width: "100%",
+      height: "6px",
+      background: theme.bgHover,
+      borderRadius: "3px",
+      overflow: "hidden"
+    }}>
+      <div style={{
+        width: `${Math.min((agentRules.length / 750) * 100, 100)}%`,
+        height: "100%",
+        background: agentRules.length < 500 ? theme.success :
+                   agentRules.length < 650 ? "#f59e0b" :
+                   agentRules.length < 750 ? "#f97316" : theme.error,
+        transition: "all 0.3s ease"
+      }} />
+    </div>
+
+    {/* Counter */}
+    <div style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      fontSize: "11px"
+    }}>
+      <span style={{
+        color: agentRules.length < 500 ? theme.success :
+               agentRules.length < 650 ? "#f59e0b" :
+               agentRules.length < 750 ? "#f97316" : theme.error,
+        fontWeight: "600"
+      }}>
+        {agentRules.length} / 750 characters
+      </span>
+      {agentRules.length >= 750 && (
+        <span style={{ color: theme.error, fontSize: "10px" }}>
+          ⚠️ Maximum limit reached
+        </span>
+      )}
+    </div>
+  </div>
+
+  <span style={{ ...styles.fieldHint, color: theme.textMuted }}>
+    Each rule on a new line. These apply to all projects.
+  </span>
+</div>
             </div>
           )}
 

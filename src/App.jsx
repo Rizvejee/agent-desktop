@@ -117,19 +117,19 @@ export default function App() {
     setToolStatuses([]);
   }
 
+
   // ═══════════════════════════════════════════════════════
-  // SEND MESSAGE (✅ Race condition fix)
+  // 💬 SEND MESSAGE (Smart Knowledge + Token Budget)
   // ═══════════════════════════════════════════════════════
   async function handleSendMessage(fullMessage, displayMessage) {
     if (!activeChat || !activeProject) return;
 
-    // ✅ Lock check — اگر پہلے سے کوئی message بھیج رہا ہے تو wait کریں
+    // ✅ Lock check
     if (isSendingRef.current) {
       console.warn("⚠️ Already sending a message. Please wait.");
       return;
     }
 
-    // ✅ Lock acquire
     isSendingRef.current = true;
     abortRef.current = false;
     setToolStatuses([]);
@@ -140,19 +140,33 @@ export default function App() {
       const instrResult = await window.electronAPI.getInstructions(activeProject.id);
       const instructions = instrResult.success ? instrResult.instructions : "";
 
-      // ✅ KNOWLEDGE FILES: صرف پہلے message میں (tokens بچانے کے لیے)
+      // ✅ SMART KNOWLEDGE: صرف relevant files بھیجیں
       let knowledgeContext = "";
-      const isFirstMessage = activeChat.messages.length <= 1;
-
-      if (isFirstMessage) {
-        const knowledgeResult = await window.electronAPI.getKnowledgeFiles(activeProject.id);
+      try {
+        const knowledgeResult = await window.electronAPI.getKnowledgeFilesContent(activeProject.id);
         if (knowledgeResult.success && knowledgeResult.files.length > 0) {
-          knowledgeContext =
-            "\n\nPROJECT BLUEPRINT (Reference only):\n" +
-            knowledgeResult.files
-              .map((f) => `--- ${f.name} ---\n${f.content}`)
-              .join("\n\n");
+          // User message سے keywords نکالیں
+          const keywords = displayMessage.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+
+          // Relevant files filter کریں
+          const relevantFiles = knowledgeResult.files.filter(f => {
+            const searchText = `${f.name} ${f.content}`.toLowerCase();
+            return keywords.some(word => searchText.includes(word));
+          });
+
+          // اگر relevant ملیں تو وہ بھیجیں، ورنہ سب کی summaries
+          if (relevantFiles.length > 0) {
+            knowledgeContext = "\n\n📚 RELEVANT KNOWLEDGE FILES:\n" +
+              relevantFiles.map(f => `--- FILE: ${f.name} ---\n${f.content}`).join("\n\n");
+          } else if (knowledgeResult.files.length <= 3) {
+            // 3 یا کم فائلیں ہوں تو سب بھیج دیں
+            knowledgeContext = "\n\n📚 PROJECT KNOWLEDGE FILES:\n" +
+              knowledgeResult.files.map(f => `--- FILE: ${f.name} ---\n${f.content}`).join("\n\n");
+          }
+          // ورنہ خالی — agent search_knowledge tool use کرے گا
         }
+      } catch (error) {
+        console.error("Error loading knowledge files:", error);
       }
 
       const fullMessageWithKnowledge = fullMessage + knowledgeContext;
@@ -205,10 +219,29 @@ export default function App() {
       };
 
       await updateChat(activeProject.id, finalChat);
+
+      // ✅ AUTO CHAT SUMMARY: اگر 20+ messages ہو جائیں
+      if (finalChat.messages.length >= 20) {
+        try {
+          const oldMessages = finalChat.messages.slice(0, -10);
+          const summaryText = oldMessages
+            .filter(m => m.role !== "system")
+            .map(m => `${m.role}: ${m.content.slice(0, 100)}`)
+            .join("\n");
+
+          await window.electronAPI.saveChatSummary(
+            activeProject.id,
+            summaryText,
+            oldMessages.length
+          );
+        } catch (error) {
+          console.error("Error saving chat summary:", error);
+        }
+      }
+
     } catch (error) {
       console.error("❌ Error in handleSendMessage:", error);
 
-      // Error message add کریں
       const errorChat = {
         ...activeChat,
         messages: [
@@ -220,7 +253,6 @@ export default function App() {
       };
       await updateChat(activeProject.id, errorChat);
     } finally {
-      // ✅ Lock release — ہر حال میں
       setIsThinking(false);
       setStreamingContent("");
       setToolStatuses([]);

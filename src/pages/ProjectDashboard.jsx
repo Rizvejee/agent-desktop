@@ -12,8 +12,10 @@ import {
   ChevronRight,
   X,
   Check,
+  RefreshCw,
 } from "lucide-react";
 import { useTheme } from "../ThemeContext";
+
 
 // ═══════════════════════════════════════════════════════
 // THREE DOT MENU
@@ -273,6 +275,8 @@ export default function ProjectDashboard({
   // ✅ ہٹایا گیا: const [fileTree, setFileTree] = useState("");
   const [renameModal, setRenameModal] = useState(null);
   const [showAddKnowledge, setShowAddKnowledge] = useState(false);
+  const [knowledgeIndex, setKnowledgeIndex] = useState({});
+
 
   // Memory States
   const [memoryData, setMemoryData] = useState({
@@ -290,9 +294,25 @@ export default function ProjectDashboard({
       loadInstructions();
       loadKnowledgeFiles();
       loadMemory();
-      // ✅ ہٹایا گیا: loadFileTree();
+      loadKnowledgeIndex();  // ✅ نیا add کریں
     }
   }, [project?.id]);
+
+  async function loadKnowledgeIndex() {
+    const result = await window.electronAPI.getKnowledgeIndex(project.id);
+    if (result.success) {
+      setKnowledgeIndex(result.index);
+    }
+  }
+
+  async function handleDeleteKnowledgeIndex(fileName) {
+    const result = await window.electronAPI.deleteKnowledgeIndex(project.id, fileName);
+    if (result.success) {
+      setKnowledgeIndex(result.index);
+    } else {
+      alert(`Error: ${result.error}`);
+    }
+  }
 
   async function loadInstructions() {
     const result = await window.electronAPI.getInstructions(project.id);
@@ -515,60 +535,101 @@ export default function ProjectDashboard({
 
             {/* ═══ INSTRUCTIONS TAB ═══ */}
             {activeTab === "instructions" && (
-              <div style={styles.section}>
-                <div style={styles.sectionHeader}>
-                  <span style={{ ...styles.sectionTitle, color: theme.textPrimary }}>Custom Instructions</span>
-                  {!isEditingInstructions && (
-                    <button
-                      style={{ ...styles.editBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
-                      onClick={() => setIsEditingInstructions(true)}
-                    >
-                      <Edit2 size={13} /> Edit
-                    </button>
-                  )}
-                </div>
-                <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
-                  These instructions apply to all chats in this project.
-                </p>
-                {isEditingInstructions ? (
-                  <div style={styles.editBlock}>
-                    <textarea
-                      style={{ ...styles.textarea, background: theme.bgInput, border: `1px solid ${theme.accent}`, color: theme.textPrimary }}
-                      value={instructions}
-                      onChange={(e) => setInstructions(e.target.value)}
-                      placeholder="- Always use functional components&#10;- Keep code simple&#10;- No TypeScript&#10;- Follow existing project style"
-                      autoFocus
-                    />
-                    <div style={styles.editBtns}>
-                      <button
-                        style={{ ...styles.cancelBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
-                        onClick={() => {
-                          setInstructions(savedInstructions);
-                          setIsEditingInstructions(false);
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        style={{ ...styles.saveBtn, background: theme.accent, color: "#fff" }}
-                        onClick={saveInstructions}
-                      >
-                        <Check size={13} /> Save
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ ...styles.preview, background: theme.bgCard, border: `1px solid ${theme.border}` }}>
-                    {savedInstructions ? (
-                      <pre style={{ ...styles.previewText, color: theme.textSecondary }}>{savedInstructions}</pre>
-                    ) : (
-                      <span style={{ color: theme.textMuted }}>No instructions yet. Click Edit to add.</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+  <div style={styles.section}>
+    <div style={styles.sectionHeader}>
+      <span style={{ ...styles.sectionTitle, color: theme.textPrimary }}>Custom Instructions</span>
+      {!isEditingInstructions && (
+        <button
+          style={{ ...styles.editBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
+          onClick={() => setIsEditingInstructions(true)}
+        >
+          <Edit2 size={13} /> Edit
+        </button>
+      )}
+    </div>
+    <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>These instructions apply to all chats in this project.</p>
+    {isEditingInstructions ? (
+      <div style={styles.editBlock}>
+        <textarea
+          style={{ ...styles.textarea, background: theme.bgInput, border: `1px solid ${theme.accent}`, color: theme.textPrimary }}
+          value={instructions}
+          onChange={(e) => {
+            const value = e.target.value;
+            // ✅ 750 characters کی limit
+            if (value.length <= 750) {
+              setInstructions(value);
+            }
+          }}
+          placeholder="- Always use functional components&#10;- Keep code simple&#10;- No TypeScript&#10;- Follow existing project style"
+          autoFocus
+        />
 
+        {/* ✅ Character Counter + Progress Bar */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "8px" }}>
+          {/* Progress Bar */}
+          <div style={{
+            width: "100%",
+            height: "6px",
+            background: theme.bgHover,
+            borderRadius: "3px",
+            overflow: "hidden"
+          }}>
+            <div style={{
+              width: `${Math.min((instructions.length / 750) * 100, 100)}%`,
+              height: "100%",
+              background: instructions.length < 500 ? theme.success :
+                         instructions.length < 650 ? "#f59e0b" :
+                         instructions.length < 750 ? "#f97316" : theme.error,
+              transition: "all 0.3s ease"
+            }} />
+          </div>
+
+          {/* Counter */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontSize: "11px"
+          }}>
+            <span style={{
+              color: instructions.length < 500 ? theme.success :
+                     instructions.length < 650 ? "#f59e0b" :
+                     instructions.length < 750 ? "#f97316" : theme.error,
+              fontWeight: "600"
+            }}>
+              {instructions.length} / 750 characters
+            </span>
+            {instructions.length >= 750 && (
+              <span style={{ color: theme.error, fontSize: "10px" }}>
+                ⚠️ Maximum limit reached
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div style={styles.editBtns}>
+          <button
+            style={{ ...styles.cancelBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
+            onClick={() => { setInstructions(savedInstructions); setIsEditingInstructions(false); }}
+          >
+            Cancel
+          </button>
+          <button style={{ ...styles.saveBtn, background: theme.accent, color: "#fff" }} onClick={saveInstructions}>
+            <Check size={13} /> Save
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div style={{ ...styles.preview, background: theme.bgCard, border: `1px solid ${theme.border}` }}>
+        {savedInstructions ? (
+          <pre style={{ ...styles.previewText, color: theme.textSecondary }}>{savedInstructions}</pre>
+        ) : (
+          <span style={{ color: theme.textMuted }}>No instructions yet. Click Edit to add.</span>
+        )}
+      </div>
+    )}
+  </div>
+)}
             {/* ═══ KNOWLEDGE TAB ═══ */}
             {activeTab === "knowledge" && (
               <div style={styles.section}>
@@ -622,122 +683,197 @@ export default function ProjectDashboard({
 
             {/* ═══ MEMORY TAB ═══ */}
             {activeTab === "memory" && (
-              <div style={styles.section}>
-                <div style={styles.sectionHeader}>
-                  <span style={{ ...styles.sectionTitle, color: theme.textPrimary }}>Agent Memory</span>
-                  <button
-                    style={{ ...styles.editBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
-                    onClick={loadMemory}
-                  >
-                    Refresh
-                  </button>
+  <div style={styles.section}>
+    <div style={styles.sectionHeader}>
+      <span style={{ ...styles.sectionTitle, color: theme.textPrimary }}>Agent Memory</span>
+      <button
+  style={{ ...styles.editBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
+  onClick={() => {
+    loadMemory();
+    loadKnowledgeIndex();  // ✅ نیا add کریں
+  }}
+>
+  <RefreshCw size={13} /> Refresh
+</button>
+    </div>
+    <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
+      What the Agent has remembered about this project.
+    </p>
+
+    {/* ═══ 🆕 KNOWLEDGE INDEX SECTION ═══ */}
+    <div style={{ background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "16px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+        <BookOpen size={15} color={theme.accent} />
+        <span style={{ fontSize: "14px", fontWeight: "600", color: theme.textPrimary }}>
+          📚 Knowledge Index
+        </span>
+        <span style={{ fontSize: "11px", color: theme.textMuted }}>
+          ({Object.keys(knowledgeIndex).length} files)
+        </span>
+      </div>
+
+      {Object.keys(knowledgeIndex).length === 0 ? (
+        <div style={{ padding: "12px", textAlign: "center", color: theme.textMuted, fontSize: "12px" }}>
+          No knowledge files indexed yet. Upload files in Knowledge tab.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {Object.entries(knowledgeIndex).map(([fileName, data]) => (
+            <div
+              key={fileName}
+              style={{
+                padding: "12px",
+                background: theme.bgInput,
+                borderRadius: "8px",
+                border: `1px solid ${theme.border}`,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <FileText size={13} color={theme.accent} />
+                  <span style={{ fontSize: "13px", fontWeight: "600", color: theme.textPrimary }}>
+                    {fileName}
+                  </span>
                 </div>
-                <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
-                  What the Agent has remembered about this project. Add items here or use /remember in chat.
-                </p>
-                <div style={{ ...styles.preview, background: theme.bgCard, border: `1px solid ${theme.border}`, display: "flex", gap: "8px", alignItems: "center", padding: "12px" }}>
-                  <select
-                    value={newMemoryCategory}
-                    onChange={(e) => setNewMemoryCategory(e.target.value)}
-                    style={{ padding: "6px", borderRadius: "6px", border: `1px solid ${theme.border}`, background: theme.bgInput, color: theme.textPrimary }}
-                  >
-                    <option value="preferences">Preferences</option>
-                    <option value="projectDecisions">Decisions</option>
-                    <option value="completedTasks">Tasks</option>
-                    <option value="notes">Notes</option>
-                  </select>
-                  <input
-                    value={newMemoryItem}
-                    onChange={(e) => setNewMemoryItem(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleAddMemory()}
-                    placeholder="Type to remember..."
-                    style={{ flex: 1, padding: "8px", borderRadius: "6px", border: `1px solid ${theme.border}`, background: theme.bgInput, color: theme.textPrimary, outline: "none" }}
-                  />
-                  <button
-                    onClick={handleAddMemory}
-                    disabled={!newMemoryItem.trim() || addingMemory}
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: "6px",
-                      border: "none",
-                      background: newMemoryItem.trim() ? theme.accent : theme.bgHover,
-                      color: newMemoryItem.trim() ? "#fff" : theme.textMuted,
-                      cursor: "pointer",
-                      fontWeight: "600",
-                    }}
-                  >
-                    {addingMemory ? "..." : "Add"}
-                  </button>
-                </div>
-                {Object.entries(memoryData).map(([category, items]) => {
-                  if (!items || items.length === 0) return null;
-                  const labels = {
-                    preferences: "User Preferences",
-                    projectDecisions: "Project Decisions",
-                    completedTasks: "Completed Tasks",
-                    notes: "Notes",
-                  };
-                  return (
-                    <div
-                      key={category}
-                      style={{ background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "12px" }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
-                        <Brain size={13} color={theme.accent} />
-                        <span style={{ fontSize: "13px", fontWeight: "600", color: theme.textPrimary }}>
-                          {labels[category]}
-                        </span>
-                        <span style={{ fontSize: "11px", color: theme.textMuted }}>
-                          ({items.length})
-                        </span>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        {items.map((item, idx) => (
-                          <div
-                            key={idx}
-                            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px", background: theme.bgInput, borderRadius: "6px" }}
-                          >
-                            <span style={{ flex: 1, fontSize: "13px", color: theme.textSecondary }}>
-                              {item}
-                            </span>
-                            <button
-                              onClick={() => handleRemoveMemory(category, item)}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted }}
-                              onMouseEnter={(e) => { e.currentTarget.style.color = theme.error; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.color = theme.textMuted; }}
-                              title="Remove from memory"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-                {Object.values(memoryData).every((arr) => !arr || arr.length === 0) && (
-                  <div
-                    style={{
-                      ...styles.preview,
-                      background: theme.bgCard,
-                      border: `1px solid ${theme.border}`,
-                      minHeight: "150px",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "10px",
-                    }}
-                  >
-                    <Brain size={32} color={theme.textMuted} />
-                    <span style={{ color: theme.textMuted, fontSize: "13px" }}>
-                      No memory yet. Add something above or use /remember in chat.
-                    </span>
-                  </div>
-                )}
+                <button
+                  onClick={() => handleDeleteKnowledgeIndex(fileName)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: theme.textMuted,
+                    padding: "4px",
+                    borderRadius: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = theme.error; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = theme.textMuted; }}
+                  title="Remove from index"
+                >
+                  <Trash2 size={12} />
+                </button>
               </div>
-            )}
+              <p style={{ fontSize: "12px", color: theme.textSecondary, margin: "0 0 4px 0", lineHeight: "1.5" }}>
+                {data.summary}
+              </p>
+              <span style={{ fontSize: "10px", color: theme.textMuted }}>
+                Added: {new Date(data.addedAt).toLocaleDateString()}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {/* ═══ ADD MEMORY INPUT ═══ */}
+    <div style={{ ...styles.preview, background: theme.bgCard, border: `1px solid ${theme.border}`, display: "flex", gap: "8px", alignItems: "center", padding: "12px" }}>
+      <select
+        value={newMemoryCategory}
+        onChange={(e) => setNewMemoryCategory(e.target.value)}
+        style={{ padding: "6px", borderRadius: "6px", border: `1px solid ${theme.border}`, background: theme.bgInput, color: theme.textPrimary }}
+      >
+        <option value="preferences">Preferences</option>
+        <option value="projectDecisions">Decisions</option>
+        <option value="completedTasks">Tasks</option>
+        <option value="notes">Notes</option>
+      </select>
+      <input
+        value={newMemoryItem}
+        onChange={(e) => setNewMemoryItem(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && handleAddMemory()}
+        placeholder="Type to remember..."
+        style={{ flex: 1, padding: "8px", borderRadius: "6px", border: `1px solid ${theme.border}`, background: theme.bgInput, color: theme.textPrimary, outline: "none" }}
+      />
+      <button
+        onClick={handleAddMemory}
+        disabled={!newMemoryItem.trim() || addingMemory}
+        style={{
+          padding: "8px 16px",
+          borderRadius: "6px",
+          border: "none",
+          background: newMemoryItem.trim() ? theme.accent : theme.bgHover,
+          color: newMemoryItem.trim() ? "#fff" : theme.textMuted,
+          cursor: "pointer",
+          fontWeight: "600",
+        }}
+      >
+        {addingMemory ? "..." : "Add"}
+      </button>
+    </div>
+
+    {/* ═══ EXISTING MEMORY CATEGORIES ═══ */}
+    {Object.entries(memoryData).map(([category, items]) => {
+      if (!items || items.length === 0) return null;
+      const labels = {
+        preferences: "User Preferences",
+        projectDecisions: "Project Decisions",
+        completedTasks: "Completed Tasks",
+        notes: "Notes",
+      };
+      return (
+        <div
+          key={category}
+          style={{ background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "12px" }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+            <Brain size={13} color={theme.accent} />
+            <span style={{ fontSize: "13px", fontWeight: "600", color: theme.textPrimary }}>
+              {labels[category]}
+            </span>
+            <span style={{ fontSize: "11px", color: theme.textMuted }}>
+              ({items.length})
+            </span>
           </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            {items.map((item, idx) => (
+              <div
+                key={idx}
+                style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px", background: theme.bgInput, borderRadius: "6px" }}
+              >
+                <span style={{ flex: 1, fontSize: "13px", color: theme.textSecondary }}>
+                  {item}
+                </span>
+                <button
+                  onClick={() => handleRemoveMemory(category, item)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = theme.error; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = theme.textMuted; }}
+                  title="Remove from memory"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    })}
+
+    {Object.values(memoryData).every((arr) => !arr || arr.length === 0) &&
+     Object.keys(knowledgeIndex).length === 0 && (
+      <div
+        style={{
+          ...styles.preview,
+          background: theme.bgCard,
+          border: `1px solid ${theme.border}`,
+          minHeight: "150px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "10px",
+        }}
+      >
+        <Brain size={32} color={theme.textMuted} />
+        <span style={{ color: theme.textMuted, fontSize: "13px" }}>
+          No memory yet. Add something above or use /remember in chat.
+        </span>
+      </div>
+    )}
+  </div>
+)}
+         </div>
         </div>
       </div>
     </div>

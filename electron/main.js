@@ -608,6 +608,100 @@ ipcMain.handle("remove-project-memory", async (event, { projectId, category, ite
 });
 
 // ═══════════════════════════════════════════════════════
+// 🆕 IPC: KNOWLEDGE INDEX (نیا!)
+// ═══════════════════════════════════════════════════════
+ipcMain.handle("get-knowledge-index", async (event, { projectId }) => {
+  try {
+    const indexFile = path.join(getProjectDir(projectId), "knowledge-index.json");
+
+    if (!fs.existsSync(indexFile)) {
+      return { success: true, index: {} };
+    }
+
+    const data = JSON.parse(fs.readFileSync(indexFile, "utf-8"));
+    return { success: true, index: data };
+  } catch (error) {
+    return { success: false, error: error.message, index: {} };
+  }
+});
+
+ipcMain.handle("delete-knowledge-index", async (event, { projectId, fileName }) => {
+  try {
+    const indexFile = path.join(getProjectDir(projectId), "knowledge-index.json");
+
+    if (!fs.existsSync(indexFile)) {
+      return { success: false, error: "Index file not found" };
+    }
+
+    const data = JSON.parse(fs.readFileSync(indexFile, "utf-8"));
+
+    if (data[fileName]) {
+      delete data[fileName];
+      fs.writeFileSync(indexFile, JSON.stringify(data, null, 2), "utf-8");
+      return { success: true, index: data };
+    }
+
+    return { success: false, error: "File not in index" };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// 🆕 IPC: CHAT SUMMARY (نیا!)
+// ═══════════════════════════════════════════════════════
+ipcMain.handle("get-chat-summary", async (event, { projectId }) => {
+  try {
+    const summaryFile = path.join(getProjectDir(projectId), "chat-summary.json");
+
+    if (!fs.existsSync(summaryFile)) {
+      return { success: true, summary: { olderMessages: "", lastUpdated: null, messageCount: 0 } };
+    }
+
+    const data = JSON.parse(fs.readFileSync(summaryFile, "utf-8"));
+    return { success: true, summary: data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("save-chat-summary", async (event, { projectId, summary, messageCount }) => {
+  try {
+    const summaryFile = path.join(getProjectDir(projectId), "chat-summary.json");
+
+    const data = {
+      olderMessages: summary,
+      lastUpdated: new Date().toISOString(),
+      messageCount: messageCount,
+    };
+
+    fs.writeFileSync(summaryFile, JSON.stringify(data, null, 2), "utf-8");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// 🆕 IPC: GET KNOWLEDGE FILES CONTENT (نیا!)
+// ═══════════════════════════════════════════════════════
+ipcMain.handle("get-knowledge-files-content", async (event, { projectId }) => {
+  try {
+    const dir = getKnowledgeDir(projectId);
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
+
+    const result = files.map((file) => {
+      const data = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8"));
+      return { name: data.name, content: data.content };
+    });
+
+    return { success: true, files: result };
+  } catch (error) {
+    return { success: true, files: [] };
+  }
+});
+
+// ═══════════════════════════════════════════════════════
 // 🆕 IPC: PLAN MANAGEMENT (نئے!)
 // ═══════════════════════════════════════════════════════
 ipcMain.handle("get-active-plan", async (event, { projectId }) => {

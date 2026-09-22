@@ -80,6 +80,30 @@ contextBridge.exposeInMainWorld("electronAPI", {
   removeProjectMemory: (projectId, category, item) =>
     ipcRenderer.invoke("remove-project-memory", { projectId, category, item }),
 
+    // ═══════════════════════════════════════════════════════
+  // 🆕 Knowledge Index (نئی!)
+  // ═══════════════════════════════════════════════════════
+  getKnowledgeIndex: (projectId) =>
+    ipcRenderer.invoke("get-knowledge-index", { projectId }),
+
+  deleteKnowledgeIndex: (projectId, fileName) =>
+    ipcRenderer.invoke("delete-knowledge-index", { projectId, fileName }),
+
+    // ═══════════════════════════════════════════════════════
+  // 🆕 Chat Summary (نئی!)
+  // ═══════════════════════════════════════════════════════
+  getChatSummary: (projectId) =>
+    ipcRenderer.invoke("get-chat-summary", { projectId }),
+
+  saveChatSummary: (projectId, summary, messageCount) =>
+    ipcRenderer.invoke("save-chat-summary", { projectId, summary, messageCount }),
+
+  // ═══════════════════════════════════════════════════════
+  // 🆕 Knowledge Files Content (نئی!)
+  // ═══════════════════════════════════════════════════════
+  getKnowledgeFilesContent: (projectId) =>
+    ipcRenderer.invoke("get-knowledge-files-content", { projectId }),
+
   // ─── 🆕 Active Plan (نئے!) ─────────────────────────
   getActivePlan: (projectId) =>
     ipcRenderer.invoke("get-active-plan", { projectId }),
