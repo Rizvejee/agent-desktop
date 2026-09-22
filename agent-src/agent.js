@@ -23,8 +23,10 @@ const TOKEN_BUDGET = {
 // CONSTANTS
 // ═══════════════════════════════════════════════════════
 const MAX_ITERATIONS = 15;        // ایک message میں زیادہ سے زیادہ tool calls
-const RECENT_MESSAGES = 10;       // آخری 10 messages پورے رکھیں
 const MAX_TOOL_OUTPUT = 8000;     // Tool result کی زیادہ سے زیادہ لمبائی
+const RECENT_MESSAGES = 5;        // ✅ 10 سے 5 کر دیں
+const MAX_HISTORY_TOKENS = 800;   // ✅ نیا: History کی hard limit
+const MAX_PER_MESSAGE_TOKENS = 200; // ✅ نیا: ہر message کی limit
 
 class Agent {
   constructor(projectPath, memoryPath) {
@@ -47,7 +49,7 @@ class Agent {
   // ═══════════════════════════════════════════════════════
   // 🧠 SYSTEM PROMPT (Token budget کے ساتھ)
   // ═══════════════════════════════════════════════════════
-  buildSystemPrompt(agentSettings = {}, customInstructions = "") {
+    buildSystemPrompt(agentSettings = {}, customInstructions = "") {
     this.agentSettings = agentSettings;
 
     const name = agentSettings.name || "Coder";
@@ -55,89 +57,44 @@ class Agent {
     const language = agentSettings.language || "Urdu";
     const rules = agentSettings.rules || this.getDefaultRules();
     const technologies = agentSettings.technologies || [
-      "React", "React Native", "Next.js", "Expo",
-      "JavaScript", "HTML", "CSS",
+      "React", "Next.js", "JavaScript", "HTML", "CSS",
     ];
 
-    // ✅ Memory سے مختصر info
+    // ✅ Memory سے مختصر info (آخری 3 items ہر category سے)
     const memoryStr = this.memory.getMemoryString();
+    
+    // ✅ Rules کو سختی سے 200 tokens تک محدود کریں
+    const truncatedRules = this.memory.truncateToTokens(rules, 200);
+    
+    // ✅ Instructions کو 150 tokens تک محدود کریں
+    const truncatedInstructions = customInstructions 
+      ? this.memory.truncateToTokens(customInstructions, 150)
+      : "";
 
-    // ✅ Token budget کے مطابق truncate کریں
-    const truncatedRules = this.memory.truncateToTokens(
-      rules,
-      TOKEN_BUDGET.systemPrompt - 200  // باقی name, role, language کے لیے
-    );
+    // ✅ مختصر system prompt — target: 400-500 tokens
+    return `You are ${name}, ${role}. Reply in ${language}. Code in ENGLISH. Use JSX + INLINE STYLES.
 
-    const truncatedInstructions = this.memory.truncateToTokens(
-      customInstructions,
-      TOKEN_BUDGET.projectInstructions
-    );
+RULES: ${truncatedRules}
+${truncatedInstructions ? `PROJECT: ${truncatedInstructions}` : ""}
 
-    return `You are ${name}, a ${role}.
+WORK MODE:
+- BIG tasks: Break into steps, ask before each
+- SMALL tasks: Do directly
 
-LANGUAGE: Reply in ${language} ONLY. Code in ENGLISH.
-STYLE: Use JSX + INLINE STYLES only. No separate CSS.
+AUTO-MEMORY (save_to_memory tool):
+- Save: preferences, decisions, completed tasks, rules
+- Skip: trivial things
 
-RULES:
-${truncatedRules}
+KNOWLEDGE FILES:
+- When "--- FILE:" appears → read it → index_knowledge_file (100-word summary) → save steps to memory
+- Future: search_knowledge tool to find relevant files
 
-${truncatedInstructions ? `PROJECT INSTRUCTIONS:\n${truncatedInstructions}\n` : ""}
-═══════════════════════════════════════════════════
-🎯 SMART WORK MODE
-═══════════════════════════════════════════════════
-- BIG tasks (login system, dashboard): Break into steps, ask before each
-- SMALL tasks (delete file, change color): Do directly, no need to ask
-
-═══════════════════════════════════════════════════
-🧠 AUTO-MEMORY (خود سے یاد رکھو!)
-═══════════════════════════════════════════════════
-Use save_to_memory tool AUTOMATICALLY when:
-✅ User states a preference
-✅ Important project decision is made
-✅ Significant task is completed
-✅ User gives a rule/instruction
-✅ A bug is fixed
-
-DO NOT save trivial things.
-Categories: preferences, projectDecisions, completedTasks, notes
-
-═══════════════════════════════════════════════════
-📚 KNOWLEDGE FILES (بہت اہم!)
-═══════════════════════════════════════════════════
-When you see "--- FILE: filename.txt ---" in the message:
-1. Read the file carefully
-2. Use index_knowledge_file tool to save a 100-word summary
-3. If it's a plan, break into steps and save_to_memory each step
-4. Tell user: "میں نے plan پڑھ لیا ہے اور memory میں save کر لیا ہے"
-
-For future messages:
-- Use search_knowledge tool to find relevant files
-- Don't ask user to re-send files
-
-═══════════════════════════════════════════════════
-💬 CHAT HISTORY MANAGEMENT
-═══════════════════════════════════════════════════
-When conversation gets long (more than 10 messages):
-- Use summarize_chat tool to save older messages as 2-3 line summary
-- This saves tokens for important context
-
-═══════════════════════════════════════════════════
-🛠️ AVAILABLE TOOLS
-═══════════════════════════════════════════════════
-- read_file, write_file, list_files, search_files, delete_file
-- run_command (npm, node, yarn, pnpm)
-- save_to_memory (auto-save important info)
-- index_knowledge_file (save knowledge file summary)
-- search_knowledge (find relevant files)
-- summarize_chat (summarize old messages)
+TOOLS: read_file, write_file, list_files, search_files, delete_file, run_command, save_to_memory, index_knowledge_file, search_knowledge, summarize_chat
 
 EXPERTISE: ${technologies.join(", ")}
 
-═══════════════════════════════════════════════════
-📋 MEMORY (یاد رکھنے کی چیزیں)
-═══════════════════════════════════════════════════
-${memoryStr}
-`;
+MEMORY:
+${memoryStr}`;
   }
 
   getDefaultRules() {
@@ -201,43 +158,110 @@ Keep explanations concise.`;
     return result;
   }
 
+    // ═══════════════════════════════════════════════════════
+  // 💬 SMART CHAT HISTORY (Strict Token Limits)
   // ═══════════════════════════════════════════════════════
-  // 💬 SMART CHAT HISTORY
-  // ═══════════════════════════════════════════════════════
-
-  /**
-   * آخری 10 messages + پرانی کا summary
-   */
   getSmartHistory() {
     const history = this.conversationHistory;
+    
+    if (history.length === 0) return [];
+    
+    // ✅ Step 1: ہر message کو individually truncate کریں
+    const truncatedHistory = history.map((msg) => ({
+      ...msg,
+      content: this.memory.truncateToTokens(msg.content, MAX_PER_MESSAGE_TOKENS),
+    }));
+    
+    // ✅ Step 2: اگر history 5 سے زیادہ ہے تو summary بنائیں
+    if (truncatedHistory.length > RECENT_MESSAGES) {
+      const recent = truncatedHistory.slice(-RECENT_MESSAGES);
+      const oldMessages = truncatedHistory.slice(0, -RECENT_MESSAGES);
+      
+      // پرانی messages کا compact summary
+      const compactSummary = oldMessages
+        .filter(m => m.role !== "system")
+        .slice(-5)
+        .map(m => {
+          const role = m.role === "user" ? "You" : "Coder";
+          const preview = m.content.slice(0, 60).replace(/\n/g, " ");
+          return `${role}: ${preview}...`;
+        })
+        .join("\n");
+      
+      if (compactSummary) {
+        const summaryMessage = {
+          role: "user",
+          content: `[Earlier: ${compactSummary}]`,
+        };
+        const ackMessage = {
+          role: "assistant",
+          content: "سمجھ گیا، جاری رکھتے ہیں۔",
+        };
+        
+        // ✅ Step 3: Total history کو hard limit تک truncate کریں
+        return this.enforceHistoryLimit([summaryMessage, ackMessage, ...recent]);
+      }
+      
+      return this.enforceHistoryLimit(recent);
+    }
+    
+    // ✅ Step 4: چھوٹی history کو بھی limit میں رکھیں
+    return this.enforceHistoryLimit(truncatedHistory);
+  }
 
-    if (history.length <= RECENT_MESSAGES) {
+  // ═══════════════════════════════════════════════════════
+  // 📏 HISTORY LIMIT ENFORCER (Strict 800 tokens)
+  // ═══════════════════════════════════════════════════════
+  enforceHistoryLimit(history) {
+    if (!history || history.length === 0) return [];
+    
+    // Total tokens calculate کریں
+    let totalTokens = history.reduce((sum, msg) => 
+      sum + this.memory.estimateTokens(msg.content), 0
+    );
+    
+    // اگر limit میں ہے تو return کریں
+    if (totalTokens <= MAX_HISTORY_TOKENS) {
       return history;
     }
-
-    // آخری 10 messages
-    const recent = history.slice(-RECENT_MESSAGES);
-
-    // پرانی messages کا summary (memory سے)
-    const summary = this.memory.getChatSummaryString();
-
-    if (!summary) {
-      // اگر summary نہیں ہے تو صرف recent messages
-      return recent;
+    
+    console.log(`⚠️ History over limit: ${totalTokens}/${MAX_HISTORY_TOKENS}. Truncating...`);
+    
+    // ✅ Strategy: آخری messages کو رکھیں، پہلے truncate کریں
+    const result = [...history];
+    
+    // پہلے پہلی message کو progressively چھوٹا کریں
+    while (totalTokens > MAX_HISTORY_TOKENS && result.length > 2) {
+      // پہلی message کو آدھا کریں
+      const first = result[0];
+      const currentLength = first.content.length;
+      const newLength = Math.floor(currentLength / 2);
+      
+      if (newLength < 20) {
+        // بہت چھوٹی ہو گئی — ہٹا دیں
+        result.shift();
+      } else {
+        result[0] = {
+          ...first,
+          content: first.content.slice(0, newLength) + "...",
+        };
+      }
+      
+      // Recalculate
+      totalTokens = result.reduce((sum, msg) => 
+        sum + this.memory.estimateTokens(msg.content), 0
+      );
     }
-
-    // Summary کو system-like message کے طور پر add کریں
-    return [
-      {
-        role: "user",
-        content: `[Earlier conversation summary]\n${summary}`,
-      },
-      {
-        role: "assistant",
-        content: "میں نے پچھلی بات چیت کا خلاصہ پڑھ لیا ہے۔ ہم جاری رکھ سکتے ہیں۔",
-      },
-      ...recent,
-    ];
+    
+    // اگر ابھی بھی زیادہ ہے تو صرف آخری 2 messages رکھیں
+    if (totalTokens > MAX_HISTORY_TOKENS && result.length > 2) {
+      return result.slice(-2).map(msg => ({
+        ...msg,
+        content: this.memory.truncateToTokens(msg.content, MAX_HISTORY_TOKENS / 2),
+      }));
+    }
+    
+    return result;
   }
 
   // ═══════════════════════════════════════════════════════
@@ -265,15 +289,15 @@ Keep explanations concise.`;
     );
   }
 
-  // ═══════════════════════════════════════════════════════
-  // 💬 MAIN CHAT METHOD
+    // ═══════════════════════════════════════════════════════
+  // 💬 MAIN CHAT METHOD (Fixed — const/let issues)
   // ═══════════════════════════════════════════════════════
   async chat(userMessage, onChunk = null, customInstructions = "") {
     this.trimHistory();
 
     // ✅ User message کو token budget کے مطابق truncate کریں
     const truncatedUserMessage = this.memory.truncateToTokens(
-      userMessage,
+      userMessage, 
       TOKEN_BUDGET.userMessage
     );
 
@@ -291,18 +315,18 @@ Keep explanations concise.`;
     }
 
     // ✅ Smart history
-    const smartHistory = this.getSmartHistory();
+    let smartHistory = this.getSmartHistory();
 
     // ✅ Token budget check
     const systemTokens = this.memory.estimateTokens(this.systemPrompt);
-    const historyTokens = smartHistory.reduce((sum, msg) =>
+    let historyTokens = smartHistory.reduce((sum, msg) => 
       sum + this.memory.estimateTokens(msg.content), 0
     );
     const knowledgeTokens = this.memory.estimateTokens(knowledgeContext);
     const userTokens = this.memory.estimateTokens(truncatedUserMessage);
-
-    const totalTokens = systemTokens + historyTokens + knowledgeTokens + userTokens;
-
+    
+    let totalTokens = systemTokens + historyTokens + knowledgeTokens + userTokens;
+    
     console.log(`\n📊 Token Budget:`);
     console.log(`   System: ${systemTokens}/${TOKEN_BUDGET.systemPrompt}`);
     console.log(`   History: ${historyTokens}/${TOKEN_BUDGET.chatHistory}`);
@@ -311,24 +335,24 @@ Keep explanations concise.`;
     console.log(`   Total: ${totalTokens}/${TOKEN_BUDGET.total}`);
 
     // اگر total budget سے زیادہ ہو تو history truncate کریں
-    let finalHistory = smartHistory;
     if (totalTokens > TOKEN_BUDGET.total) {
       const excess = totalTokens - TOKEN_BUDGET.total;
       console.log(`⚠️ Over budget by ${excess} tokens. Truncating history...`);
-
+      
       // History کو progressively truncate کریں
-      while (finalHistory.length > 4 && totalTokens > TOKEN_BUDGET.total) {
-        finalHistory = finalHistory.slice(2); // پہلے 2 messages ہٹائیں
-        totalTokens = finalHistory.reduce((sum, msg) =>
+      while (smartHistory.length > 4 && totalTokens > TOKEN_BUDGET.total) {
+        smartHistory = smartHistory.slice(2); // پہلے 2 messages ہٹائیں
+        historyTokens = smartHistory.reduce((sum, msg) => 
           sum + this.memory.estimateTokens(msg.content), 0
-        ) + systemTokens + knowledgeTokens + userTokens;
+        );
+        totalTokens = systemTokens + historyTokens + knowledgeTokens + userTokens;
       }
     }
 
     const tools = this.toolHandler.getToolDefinitions();
-    let messages = [
+    const messages = [
       { role: "system", content: this.systemPrompt + knowledgeContext },
-      ...finalHistory,
+      ...smartHistory,
     ];
 
     let iterations = 0;
@@ -358,7 +382,7 @@ Keep explanations concise.`;
         for (const toolCall of response.message.tool_calls) {
           const toolName = toolCall.function.name;
           let toolInput;
-
+          
           try {
             toolInput = JSON.parse(toolCall.function.arguments);
           } catch (e) {
@@ -373,14 +397,17 @@ Keep explanations concise.`;
             tool_call_id: toolCall.id,
             content: truncatedResult,
           });
-
+          
           // ✅ اگر memory save ہوئی تو system prompt refresh کریں
-          if (toolName === "save_to_memory" ||
+          if (toolName === "save_to_memory" || 
               toolName === "index_knowledge_file" ||
               toolName === "summarize_chat") {
             this.refreshSystemPrompt(customInstructions);
-            // Messages میں system prompt update کریں
-            messages[0].content = this.systemPrompt + this.getSmartKnowledge(userMessage);
+            // ✅ messages[0] کی content update کریں (array itself نہیں)
+            messages[0] = {
+              ...messages[0],
+              content: this.systemPrompt + this.getSmartKnowledge(userMessage),
+            };
           }
         }
         continue;

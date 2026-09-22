@@ -397,8 +397,8 @@ Keep explanations concise.`
     value={agentRules}
     onChange={(e) => {
       const value = e.target.value;
-      // ✅ 750 characters کی limit
-      if (value.length <= 750) {
+      // ✅ 200 characters کی limit
+      if (value.length <= 200) {
         setAgentRules(value);
       }
     }}
@@ -416,11 +416,11 @@ Keep explanations concise.`
       overflow: "hidden"
     }}>
       <div style={{
-        width: `${Math.min((agentRules.length / 750) * 100, 100)}%`,
+        width: `${Math.min((agentRules.length / 200) * 100, 100)}%`,
         height: "100%",
-        background: agentRules.length < 500 ? theme.success :
-                   agentRules.length < 650 ? "#f59e0b" :
-                   agentRules.length < 750 ? "#f97316" : theme.error,
+        background: agentRules.length < 100 ? theme.success :
+                   agentRules.length < 150 ? "#f59e0b" :
+                   agentRules.length < 200 ? "#f97316" : theme.error,
         transition: "all 0.3s ease"
       }} />
     </div>
@@ -433,14 +433,14 @@ Keep explanations concise.`
       fontSize: "11px"
     }}>
       <span style={{
-        color: agentRules.length < 500 ? theme.success :
-               agentRules.length < 650 ? "#f59e0b" :
-               agentRules.length < 750 ? "#f97316" : theme.error,
+        color: agentRules.length < 100 ? theme.success :
+               agentRules.length < 150 ? "#f59e0b" :
+               agentRules.length < 200 ? "#f97316" : theme.error,
         fontWeight: "600"
       }}>
-        {agentRules.length} / 750 characters
+        {agentRules.length} / 200 characters
       </span>
-      {agentRules.length >= 750 && (
+      {agentRules.length >= 200 && (
         <span style={{ color: theme.error, fontSize: "10px" }}>
           ⚠️ Maximum limit reached
         </span>

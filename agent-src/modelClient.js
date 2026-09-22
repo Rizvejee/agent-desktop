@@ -8,6 +8,8 @@ class ModelClient {
     this.config = config;
     this.client = null;
     this.model = config.model;
+     // ✅ نیا: Settings سے API keys load کریں (اگر config میں نہیں ہیں)
+    this.loadApiKeysFromSettings();
 
     // Provider-wise token limits (free tier safe)
     this.tokenLimits = {
@@ -18,6 +20,54 @@ class ModelClient {
 
     this.setupClient();
   }
+
+  // ═══════════════════════════════════════════════════════
+// 🔑 SETTINGS سے API KEYS LOAD کریں
+// ═══════════════════════════════════════════════════════
+loadApiKeysFromSettings() {
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const settingsPath = path.join(__dirname, "../memory/settings.json");
+    
+    if (!fs.existsSync(settingsPath)) {
+      console.warn("⚠️ Settings file not found at:", settingsPath);
+      return;
+    }
+    
+    const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+    
+    // Provider کو settings سے override کریں (اگر config میں نہیں ہے)
+    if (!this.config.apiKey && !this.config.baseURL) {
+      if (settings.provider) {
+        this.provider = settings.provider;
+      }
+      
+      // Groq API key
+      if (this.provider === "groq" && settings.groqApiKey) {
+        this.config.apiKey = settings.groqApiKey;
+        this.config.model = settings.groqModel || this.config.model;
+        console.log("✅ Groq API key loaded from settings");
+      }
+      
+      // Gemini API key
+      if (this.provider === "gemini" && settings.geminiApiKey) {
+        this.config.apiKey = settings.geminiApiKey;
+        this.config.model = settings.geminiModel || this.config.model;
+        console.log("✅ Gemini API key loaded from settings");
+      }
+      
+      // Ollama URL
+      if (this.provider === "ollama" && settings.ollamaUrl) {
+        this.config.baseURL = settings.ollamaUrl;
+        this.config.model = settings.ollamaModel || this.config.model;
+        console.log("✅ Ollama URL loaded from settings");
+      }
+    }
+  } catch (error) {
+    console.error("❌ Error loading settings:", error.message);
+  }
+}
 
   setupClient() {
     switch (this.provider) {

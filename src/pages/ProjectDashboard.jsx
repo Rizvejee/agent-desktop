@@ -555,8 +555,8 @@ export default function ProjectDashboard({
           value={instructions}
           onChange={(e) => {
             const value = e.target.value;
-            // ✅ 750 characters کی limit
-            if (value.length <= 750) {
+            // ✅ 200 characters کی limit
+            if (value.length <= 200) {
               setInstructions(value);
             }
           }}
@@ -575,11 +575,11 @@ export default function ProjectDashboard({
             overflow: "hidden"
           }}>
             <div style={{
-              width: `${Math.min((instructions.length / 750) * 100, 100)}%`,
+              width: `${Math.min((instructions.length / 200) * 100, 100)}%`,
               height: "100%",
-              background: instructions.length < 500 ? theme.success :
-                         instructions.length < 650 ? "#f59e0b" :
-                         instructions.length < 750 ? "#f97316" : theme.error,
+              background: instructions.length < 100 ? theme.success :
+                         instructions.length < 150 ? "#f59e0b" :
+                         instructions.length < 200 ? "#f97316" : theme.error,
               transition: "all 0.3s ease"
             }} />
           </div>
@@ -592,14 +592,14 @@ export default function ProjectDashboard({
             fontSize: "11px"
           }}>
             <span style={{
-              color: instructions.length < 500 ? theme.success :
-                     instructions.length < 650 ? "#f59e0b" :
-                     instructions.length < 750 ? "#f97316" : theme.error,
+              color: instructions.length < 100 ? theme.success :
+                     instructions.length < 150 ? "#f59e0b" :
+                     instructions.length < 200 ? "#f97316" : theme.error,
               fontWeight: "600"
             }}>
-              {instructions.length} / 750 characters
+              {instructions.length} / 200 characters
             </span>
-            {instructions.length >= 750 && (
+            {instructions.length >= 200 && (
               <span style={{ color: theme.error, fontSize: "10px" }}>
                 ⚠️ Maximum limit reached
               </span>
