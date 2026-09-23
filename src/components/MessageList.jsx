@@ -4,6 +4,7 @@ import { useTheme } from "../ThemeContext";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight, oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import remarkGfm from "remark-gfm";
 
 // ═══════════════════════════════════════════════════════
 // CODE BLOCK COMPONENT
@@ -21,20 +22,31 @@ function CodeBlock({ language, code, theme, mode }) {
     <div
       style={{
         ...codeStyles.container,
-        background: mode === "dark" ? "#1a1a2e" : "#f8f8f8",
-        border: `1px solid ${theme.border}`,
+        background: mode === "dark" ? "#0d1117" : "#f6f8fa",
+        border: `1px solid ${mode === "dark" ? "#30363d" : "#d0d7de"}`,
+        borderRadius: "10px",
+        overflow: "hidden",
       }}
     >
+      {/* Header */}
       <div
         style={{
           ...codeStyles.header,
-          background: mode === "dark" ? "#16213e" : "#f0f0f0",
-          borderBottom: `1px solid ${theme.border}`,
+          background: mode === "dark" ? "#161b22" : "#e8ecf0",
+          borderBottom: `1px solid ${mode === "dark" ? "#30363d" : "#d0d7de"}`,
         }}
       >
-        <span style={{ ...codeStyles.language, color: theme.textMuted }}>
-          {language || "code"}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {/* 3 dots — VS Code جیسا */}
+          <div style={{ display: "flex", gap: "5px" }}>
+            <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#ff5f56" }} />
+            <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#ffbd2e" }} />
+            <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#27c93f" }} />
+          </div>
+          <span style={{ ...codeStyles.language, color: theme.textMuted }}>
+            {language || "code"}
+          </span>
+        </div>
         <button
           style={{
             ...codeStyles.copyBtn,
@@ -47,18 +59,22 @@ function CodeBlock({ language, code, theme, mode }) {
           {copied ? "Copied!" : "Copy"}
         </button>
       </div>
-      {/* ✅ FIX: Code block ہمیشہ LTR رہے گا — Urdu text بھی */}
+
+      {/* Code content */}
       <div style={{ direction: "ltr", textAlign: "left" }}>
         <SyntaxHighlighter
           language={language || "javascript"}
           style={mode === "dark" ? oneDark : oneLight}
           customStyle={{
             margin: 0,
-            padding: "14px 16px",
+            padding: "16px 18px",
             background: "transparent",
-            fontSize: "13px",
+            fontSize: "13.5px",
             lineHeight: "1.6",
+            fontFamily: "'SF Mono', Monaco, Menlo, 'Courier New', monospace",
           }}
+          wrapLines={false}
+          showLineNumbers={false}
         >
           {code}
         </SyntaxHighlighter>
@@ -66,7 +82,6 @@ function CodeBlock({ language, code, theme, mode }) {
     </div>
   );
 }
-
 // ═══════════════════════════════════════════════════════
 // TOOL STATUS COMPONENT
 // ═══════════════════════════════════════════════════════
@@ -136,6 +151,7 @@ function AgentMessage({ content, theme, mode }) {
       }}
     >
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}  // ✅ یہ نئی line add کریں
         components={{
           // Code blocks
           code({ node, inline, className, children, ...props }) {
@@ -160,7 +176,6 @@ function AgentMessage({ content, theme, mode }) {
                   background: theme.bgHover,
                   color: theme.accent,
                   border: `1px solid ${theme.border}`,
-                  // ✅ FIX: Inline code ہمیشہ LTR
                   direction: "ltr",
                   unicodeBidi: "embed",
                 }}
@@ -176,13 +191,16 @@ function AgentMessage({ content, theme, mode }) {
           },
           // Headings
           h1({ children }) {
-            return <h1 style={{ ...agentStyles.heading, fontSize: "20px" }}>{children}</h1>;
+            return <h1 style={{ ...agentStyles.heading, fontSize: "22px" }}>{children}</h1>;
           },
           h2({ children }) {
-            return <h2 style={{ ...agentStyles.heading, fontSize: "17px" }}>{children}</h2>;
+            return <h2 style={{ ...agentStyles.heading, fontSize: "19px" }}>{children}</h2>;
           },
           h3({ children }) {
-            return <h3 style={{ ...agentStyles.heading, fontSize: "15px" }}>{children}</h3>;
+            return <h3 style={{ ...agentStyles.heading, fontSize: "16px" }}>{children}</h3>;
+          },
+          h4({ children }) {
+            return <h4 style={{ ...agentStyles.heading, fontSize: "15px", fontWeight: "600" }}>{children}</h4>;
           },
           // Lists
           ul({ children }) {
@@ -197,9 +215,27 @@ function AgentMessage({ content, theme, mode }) {
           // Bold
           strong({ children }) {
             return (
-              <strong style={{ fontWeight: "600", color: theme.textPrimary }}>
+              <strong style={{ fontWeight: "700", color: theme.textPrimary }}>
                 {children}
               </strong>
+            );
+          },
+          // Italic
+          em({ children }) {
+            return <em style={{ fontStyle: "italic" }}>{children}</em>;
+          },
+          // Links
+          a({ href, children }) {
+            return (
+              <a
+                href={href}
+                style={agentStyles.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {children}
+              </a>
             );
           },
           // Blockquote
@@ -218,10 +254,55 @@ function AgentMessage({ content, theme, mode }) {
               </blockquote>
             );
           },
+          // Tables
+          table({ children }) {
+            return (
+              <table
+                style={{
+                  ...agentStyles.table,
+                  borderColor: theme.border,
+                }}
+              >
+                {children}
+              </table>
+            );
+          },
+          th({ children }) {
+            return (
+              <th
+                style={{
+                  ...agentStyles.th,
+                  borderColor: theme.border,
+                  background: theme.bgHover,
+                  color: theme.textPrimary,
+                }}
+              >
+                {children}
+              </th>
+            );
+          },
+          td({ children }) {
+            return (
+              <td
+                style={{
+                  ...agentStyles.td,
+                  borderColor: theme.border,
+                  color: theme.textSecondary,
+                }}
+              >
+                {children}
+              </td>
+            );
+          },
           // Horizontal rule
           hr() {
             return (
-              <hr style={{ border: "none", borderTop: `1px solid ${theme.border}`, margin: "16px 0" }} />
+              <hr
+                style={{
+                  ...agentStyles.hr,
+                  borderTop: `1px solid ${theme.border}`,
+                }}
+              />
             );
           },
         }}
@@ -517,7 +598,7 @@ const styles = {
 const agentStyles = {
   container: {
     fontSize: "15px",
-    lineHeight: "1.8",
+    lineHeight: "1.7",
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
     userSelect: "text",
     cursor: "text",
@@ -525,34 +606,68 @@ const agentStyles = {
     MozOsxFontSmoothing: "grayscale",
   },
   paragraph: {
-    margin: "0 0 12px 0",
-    whiteSpace: "pre-wrap",
+    margin: "0 0 14px 0",
+    whiteSpace: "normal",  // ✅ "pre-wrap" سے "normal" — Markdown کے لیے
     wordBreak: "break-word",
-    lineHeight: "1.8",
+    lineHeight: "1.7",
+    fontSize: "15px",
   },
   heading: {
     fontWeight: "700",
-    margin: "16px 0 8px 0",
-    lineHeight: "1.4",
+    margin: "20px 0 10px 0",
+    lineHeight: "1.3",
+    color: "inherit",
+    letterSpacing: "-0.01em",
   },
   list: {
-    margin: "0 0 12px 0",
-    paddingLeft: "20px",
+    margin: "0 0 14px 0",
+    paddingLeft: "24px",
+    lineHeight: "1.7",
   },
   listItem: {
-    margin: "4px 0",
-    lineHeight: "1.6",
+    margin: "6px 0",
+    lineHeight: "1.7",
   },
   inlineCode: {
-    padding: "2px 6px",
-    borderRadius: "4px",
-    fontSize: "13px",
-    fontFamily: "Monaco, Menlo, monospace",
+    padding: "2px 7px",
+    borderRadius: "5px",
+    fontSize: "13.5px",
+    fontFamily: "'SF Mono', Monaco, Menlo, 'Courier New', monospace",
+    fontWeight: "500",
   },
   blockquote: {
-    margin: "12px 0",
-    padding: "8px 14px",
+    margin: "14px 0",
+    padding: "10px 16px",
     borderRadius: "0 8px 8px 0",
+    fontStyle: "italic",
+    lineHeight: "1.7",
+  },
+  link: {
+    color: "inherit",
+    textDecoration: "underline",
+    textDecorationColor: "currentColor",
+    textUnderlineOffset: "2px",
+  },
+  table: {
+    borderCollapse: "collapse",
+    width: "100%",
+    margin: "14px 0",
+    fontSize: "14px",
+  },
+  th: {
+    border: "1px solid",
+    padding: "8px 12px",
+    fontWeight: "600",
+    textAlign: "left",
+  },
+  td: {
+    border: "1px solid",
+    padding: "8px 12px",
+  },
+  hr: {
+    border: "none",
+    margin: "20px 0",
+    opacity: 0.3,
   },
 };
 

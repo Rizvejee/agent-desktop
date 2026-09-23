@@ -13,6 +13,11 @@ import {
   X,
   Check,
   RefreshCw,
+  Folder,
+  File,
+  CheckCircle,
+  Clock,
+  PauseCircle,
 } from "lucide-react";
 import { useTheme } from "../ThemeContext";
 
@@ -254,6 +259,91 @@ function AddKnowledgeModal({ onClose, onSaveFile, onUploadFile, theme }) {
 }
 
 // ═══════════════════════════════════════════════════════
+// STRUCTURE TREE HELPERS
+// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// STRUCTURE TREE HELPERS (Fixed with Safety Checks)
+// ═══════════════════════════════════════════════════════
+function buildStructureTree(structure, theme) {
+  const tree = {};
+  
+  // ✅ Safety Check: اگر structure خالی یا undefined ہے تو کچھ نہ کریں
+  if (!Array.isArray(structure) || structure.length === 0) {
+    return null;
+  }
+
+  structure.forEach(file => {
+    // ✅ Safety Check: اگر file یا file.path undefined ہے تو skip کریں
+    if (!file || !file.path) return;
+
+    const parts = file.path.split("/");
+    let current = tree;
+    
+    parts.forEach((part, index) => {
+      if (index === parts.length - 1) {
+        current[part] = { type: "file", data: file };
+      } else {
+        if (!current[part]) {
+          current[part] = { type: "folder", children: {} };
+        }
+        current = current[part].children;
+      }
+    });
+  });
+  
+  return renderTreeNode(tree, 0, theme);
+}
+
+function renderTreeNode(node, depth, theme) {
+  if (!node) return null; // ✅ Safety check
+
+  return Object.entries(node).map(([name, data]) => {
+    if (data.type === "folder") {
+      return (
+        <div key={name} style={{ marginLeft: depth * 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px 0" }}>
+            <Folder size={14} color={theme.accent} />
+            <span style={{ fontSize: "13px", fontWeight: "600", color: theme.textPrimary }}>
+              {name}/
+            </span>
+          </div>
+          {renderTreeNode(data.children, depth + 1, theme)}
+        </div>
+      );
+    } else {
+      const file = data.data;
+      
+      // ✅ Safety check for file status
+      const status = file?.status || "pending";
+      const statusIcon = status === "completed" ? (
+        <CheckCircle size={14} color={theme.success} />
+      ) : status === "in-progress" ? (
+        <Clock size={14} color="#f59e0b" />
+      ) : (
+        <PauseCircle size={14} color={theme.textMuted} />
+      );
+      
+      return (
+        <div key={name} style={{ marginLeft: depth * 16, padding: "6px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            {statusIcon}
+            <File size={13} color={theme.textSecondary} />
+            <span style={{ fontSize: "13px", color: theme.textPrimary, flex: 1 }}>
+              {name}
+            </span>
+            {file?.purpose && (
+              <span style={{ fontSize: "11px", color: theme.textMuted, fontStyle: "italic" }}>
+                ({file.purpose})
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
 // MAIN PROJECT DASHBOARD COMPONENT
 // ═══════════════════════════════════════════════════════
 export default function ProjectDashboard({
@@ -285,6 +375,14 @@ export default function ProjectDashboard({
     completedTasks: [],
     notes: [],
   });
+  const [projectStructure, setProjectStructure] = useState([]);
+  const [structureStats, setStructureStats] = useState({
+    total: 0,
+    completed: 0,
+    inProgress: 0,
+    pending: 0,
+    percentage: 0,
+  });
   const [newMemoryItem, setNewMemoryItem] = useState("");
   const [newMemoryCategory, setNewMemoryCategory] = useState("notes");
   const [addingMemory, setAddingMemory] = useState(false);
@@ -295,6 +393,7 @@ export default function ProjectDashboard({
       loadKnowledgeFiles();
       loadMemory();
       loadKnowledgeIndex();  // ✅ نیا add کریں
+      loadProjectStructure();
     }
   }, [project?.id]);
 
@@ -406,6 +505,25 @@ export default function ProjectDashboard({
     }
   }
 
+  async function loadProjectStructure() {
+    const result = await window.electronAPI.getProjectStructure(project.id);
+    if (result.success) {
+      setProjectStructure(result.structure);
+      setStructureStats(result.stats);
+    }
+  }
+
+  async function handleClearStructure() {
+    const confirm = window.confirm("Are you sure you want to clear the project structure?");
+    if (!confirm) return;
+
+    const result = await window.electronAPI.clearProjectStructure(project.id);
+    if (result.success) {
+      setProjectStructure([]);
+      setStructureStats({ total: 0, completed: 0, inProgress: 0, pending: 0, percentage: 0 });
+    }
+  }
+
   // ✅ ہٹایا گیا: loadFileTree function
 
   const tabs = [
@@ -413,6 +531,7 @@ export default function ProjectDashboard({
     { id: "instructions", label: "Instructions", icon: <BookOpen size={15} /> },
     { id: "knowledge", label: "Knowledge", icon: <FileText size={15} /> },
     { id: "memory", label: "Memory", icon: <Brain size={15} /> },
+    { id: "structure", label: "Structure", icon: <Folder size={15} /> },
   ];
 
   return (
@@ -535,101 +654,101 @@ export default function ProjectDashboard({
 
             {/* ═══ INSTRUCTIONS TAB ═══ */}
             {activeTab === "instructions" && (
-  <div style={styles.section}>
-    <div style={styles.sectionHeader}>
-      <span style={{ ...styles.sectionTitle, color: theme.textPrimary }}>Custom Instructions</span>
-      {!isEditingInstructions && (
-        <button
-          style={{ ...styles.editBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
-          onClick={() => setIsEditingInstructions(true)}
-        >
-          <Edit2 size={13} /> Edit
-        </button>
-      )}
-    </div>
-    <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>These instructions apply to all chats in this project.</p>
-    {isEditingInstructions ? (
-      <div style={styles.editBlock}>
-        <textarea
-          style={{ ...styles.textarea, background: theme.bgInput, border: `1px solid ${theme.accent}`, color: theme.textPrimary }}
-          value={instructions}
-          onChange={(e) => {
-            const value = e.target.value;
-            // ✅ 200 characters کی limit
-            if (value.length <= 200) {
-              setInstructions(value);
-            }
-          }}
-          placeholder="- Always use functional components&#10;- Keep code simple&#10;- No TypeScript&#10;- Follow existing project style"
-          autoFocus
-        />
+              <div style={styles.section}>
+                <div style={styles.sectionHeader}>
+                  <span style={{ ...styles.sectionTitle, color: theme.textPrimary }}>Custom Instructions</span>
+                  {!isEditingInstructions && (
+                    <button
+                      style={{ ...styles.editBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
+                      onClick={() => setIsEditingInstructions(true)}
+                    >
+                      <Edit2 size={13} /> Edit
+                    </button>
+                  )}
+                </div>
+                <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>These instructions apply to all chats in this project.</p>
+                {isEditingInstructions ? (
+                  <div style={styles.editBlock}>
+                    <textarea
+                      style={{ ...styles.textarea, background: theme.bgInput, border: `1px solid ${theme.accent}`, color: theme.textPrimary }}
+                      value={instructions}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // ✅ 200 characters کی limit
+                        if (value.length <= 200) {
+                          setInstructions(value);
+                        }
+                      }}
+                      placeholder="- Always use functional components&#10;- Keep code simple&#10;- No TypeScript&#10;- Follow existing project style"
+                      autoFocus
+                    />
 
-        {/* ✅ Character Counter + Progress Bar */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "8px" }}>
-          {/* Progress Bar */}
-          <div style={{
-            width: "100%",
-            height: "6px",
-            background: theme.bgHover,
-            borderRadius: "3px",
-            overflow: "hidden"
-          }}>
-            <div style={{
-              width: `${Math.min((instructions.length / 200) * 100, 100)}%`,
-              height: "100%",
-              background: instructions.length < 100 ? theme.success :
-                         instructions.length < 150 ? "#f59e0b" :
-                         instructions.length < 200 ? "#f97316" : theme.error,
-              transition: "all 0.3s ease"
-            }} />
-          </div>
+                    {/* ✅ Character Counter + Progress Bar */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "8px" }}>
+                      {/* Progress Bar */}
+                      <div style={{
+                        width: "100%",
+                        height: "6px",
+                        background: theme.bgHover,
+                        borderRadius: "3px",
+                        overflow: "hidden"
+                      }}>
+                        <div style={{
+                          width: `${Math.min((instructions.length / 200) * 100, 100)}%`,
+                          height: "100%",
+                          background: instructions.length < 100 ? theme.success :
+                            instructions.length < 150 ? "#f59e0b" :
+                              instructions.length < 200 ? "#f97316" : theme.error,
+                          transition: "all 0.3s ease"
+                        }} />
+                      </div>
 
-          {/* Counter */}
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            fontSize: "11px"
-          }}>
-            <span style={{
-              color: instructions.length < 100 ? theme.success :
-                     instructions.length < 150 ? "#f59e0b" :
-                     instructions.length < 200 ? "#f97316" : theme.error,
-              fontWeight: "600"
-            }}>
-              {instructions.length} / 200 characters
-            </span>
-            {instructions.length >= 200 && (
-              <span style={{ color: theme.error, fontSize: "10px" }}>
-                ⚠️ Maximum limit reached
-              </span>
+                      {/* Counter */}
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontSize: "11px"
+                      }}>
+                        <span style={{
+                          color: instructions.length < 100 ? theme.success :
+                            instructions.length < 150 ? "#f59e0b" :
+                              instructions.length < 200 ? "#f97316" : theme.error,
+                          fontWeight: "600"
+                        }}>
+                          {instructions.length} / 200 characters
+                        </span>
+                        {instructions.length >= 200 && (
+                          <span style={{ color: theme.error, fontSize: "10px" }}>
+                            ⚠️ Maximum limit reached
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={styles.editBtns}>
+                      <button
+                        style={{ ...styles.cancelBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
+                        onClick={() => { setInstructions(savedInstructions); setIsEditingInstructions(false); }}
+                      >
+                        Cancel
+                      </button>
+                      <button style={{ ...styles.saveBtn, background: theme.accent, color: "#fff" }} onClick={saveInstructions}>
+                        <Check size={13} /> Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ ...styles.preview, background: theme.bgCard, border: `1px solid ${theme.border}` }}>
+                    {savedInstructions ? (
+                      <pre style={{ ...styles.previewText, color: theme.textSecondary }}>{savedInstructions}</pre>
+                    ) : (
+                      <span style={{ color: theme.textMuted }}>No instructions yet. Click Edit to add.</span>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
-          </div>
-        </div>
-
-        <div style={styles.editBtns}>
-          <button
-            style={{ ...styles.cancelBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
-            onClick={() => { setInstructions(savedInstructions); setIsEditingInstructions(false); }}
-          >
-            Cancel
-          </button>
-          <button style={{ ...styles.saveBtn, background: theme.accent, color: "#fff" }} onClick={saveInstructions}>
-            <Check size={13} /> Save
-          </button>
-        </div>
-      </div>
-    ) : (
-      <div style={{ ...styles.preview, background: theme.bgCard, border: `1px solid ${theme.border}` }}>
-        {savedInstructions ? (
-          <pre style={{ ...styles.previewText, color: theme.textSecondary }}>{savedInstructions}</pre>
-        ) : (
-          <span style={{ color: theme.textMuted }}>No instructions yet. Click Edit to add.</span>
-        )}
-      </div>
-    )}
-  </div>
-)}
             {/* ═══ KNOWLEDGE TAB ═══ */}
             {activeTab === "knowledge" && (
               <div style={styles.section}>
@@ -683,203 +802,280 @@ export default function ProjectDashboard({
 
             {/* ═══ MEMORY TAB ═══ */}
             {activeTab === "memory" && (
-  <div style={styles.section}>
-    <div style={styles.sectionHeader}>
-      <span style={{ ...styles.sectionTitle, color: theme.textPrimary }}>Agent Memory</span>
-      <button
-  style={{ ...styles.editBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
-  onClick={() => {
-    loadMemory();
-    loadKnowledgeIndex();  // ✅ نیا add کریں
-  }}
->
-  <RefreshCw size={13} /> Refresh
-</button>
-    </div>
-    <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
-      What the Agent has remembered about this project.
-    </p>
+              <div style={styles.section}>
+                <div style={styles.sectionHeader}>
+                  <span style={{ ...styles.sectionTitle, color: theme.textPrimary }}>Agent Memory</span>
+                  <button
+                    style={{ ...styles.editBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
+                    onClick={() => {
+                      loadMemory();
+                      loadKnowledgeIndex();  // ✅ نیا add کریں
+                    }}
+                  >
+                    <RefreshCw size={13} /> Refresh
+                  </button>
+                </div>
+                <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
+                  What the Agent has remembered about this project.
+                </p>
 
-    {/* ═══ 🆕 KNOWLEDGE INDEX SECTION ═══ */}
-    <div style={{ background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "16px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-        <BookOpen size={15} color={theme.accent} />
-        <span style={{ fontSize: "14px", fontWeight: "600", color: theme.textPrimary }}>
-          📚 Knowledge Index
-        </span>
-        <span style={{ fontSize: "11px", color: theme.textMuted }}>
-          ({Object.keys(knowledgeIndex).length} files)
-        </span>
-      </div>
+                {/* ═══ 🆕 KNOWLEDGE INDEX SECTION ═══ */}
+                <div style={{ background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                    <BookOpen size={15} color={theme.accent} />
+                    <span style={{ fontSize: "14px", fontWeight: "600", color: theme.textPrimary }}>
+                      📚 Knowledge Index
+                    </span>
+                    <span style={{ fontSize: "11px", color: theme.textMuted }}>
+                      ({Object.keys(knowledgeIndex).length} files)
+                    </span>
+                  </div>
 
-      {Object.keys(knowledgeIndex).length === 0 ? (
-        <div style={{ padding: "12px", textAlign: "center", color: theme.textMuted, fontSize: "12px" }}>
-          No knowledge files indexed yet. Upload files in Knowledge tab.
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          {Object.entries(knowledgeIndex).map(([fileName, data]) => (
-            <div
-              key={fileName}
-              style={{
-                padding: "12px",
-                background: theme.bgInput,
-                borderRadius: "8px",
-                border: `1px solid ${theme.border}`,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <FileText size={13} color={theme.accent} />
-                  <span style={{ fontSize: "13px", fontWeight: "600", color: theme.textPrimary }}>
-                    {fileName}
+                  {Object.keys(knowledgeIndex).length === 0 ? (
+                    <div style={{ padding: "12px", textAlign: "center", color: theme.textMuted, fontSize: "12px" }}>
+                      No knowledge files indexed yet. Upload files in Knowledge tab.
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {Object.entries(knowledgeIndex).map(([fileName, data]) => (
+                        <div
+                          key={fileName}
+                          style={{
+                            padding: "12px",
+                            background: theme.bgInput,
+                            borderRadius: "8px",
+                            border: `1px solid ${theme.border}`,
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <FileText size={13} color={theme.accent} />
+                              <span style={{ fontSize: "13px", fontWeight: "600", color: theme.textPrimary }}>
+                                {fileName}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteKnowledgeIndex(fileName)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                color: theme.textMuted,
+                                padding: "4px",
+                                borderRadius: "4px",
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.color = theme.error; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.color = theme.textMuted; }}
+                              title="Remove from index"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                          <p style={{ fontSize: "12px", color: theme.textSecondary, margin: "0 0 4px 0", lineHeight: "1.5" }}>
+                            {data.summary}
+                          </p>
+                          <span style={{ fontSize: "10px", color: theme.textMuted }}>
+                            Added: {new Date(data.addedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* ═══ ADD MEMORY INPUT ═══ */}
+                <div style={{ ...styles.preview, background: theme.bgCard, border: `1px solid ${theme.border}`, display: "flex", gap: "8px", alignItems: "center", padding: "12px" }}>
+                  <select
+                    value={newMemoryCategory}
+                    onChange={(e) => setNewMemoryCategory(e.target.value)}
+                    style={{ padding: "6px", borderRadius: "6px", border: `1px solid ${theme.border}`, background: theme.bgInput, color: theme.textPrimary }}
+                  >
+                    <option value="preferences">Preferences</option>
+                    <option value="projectDecisions">Decisions</option>
+                    <option value="completedTasks">Tasks</option>
+                    <option value="notes">Notes</option>
+                  </select>
+                  <input
+                    value={newMemoryItem}
+                    onChange={(e) => setNewMemoryItem(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddMemory()}
+                    placeholder="Type to remember..."
+                    style={{ flex: 1, padding: "8px", borderRadius: "6px", border: `1px solid ${theme.border}`, background: theme.bgInput, color: theme.textPrimary, outline: "none" }}
+                  />
+                  <button
+                    onClick={handleAddMemory}
+                    disabled={!newMemoryItem.trim() || addingMemory}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "6px",
+                      border: "none",
+                      background: newMemoryItem.trim() ? theme.accent : theme.bgHover,
+                      color: newMemoryItem.trim() ? "#fff" : theme.textMuted,
+                      cursor: "pointer",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {addingMemory ? "..." : "Add"}
+                  </button>
+                </div>
+
+                {/* ═══ EXISTING MEMORY CATEGORIES ═══ */}
+                {Object.entries(memoryData).map(([category, items]) => {
+                  if (!items || items.length === 0) return null;
+                  const labels = {
+                    preferences: "User Preferences",
+                    projectDecisions: "Project Decisions",
+                    completedTasks: "Completed Tasks",
+                    notes: "Notes",
+                  };
+                  return (
+                    <div
+                      key={category}
+                      style={{ background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "12px" }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+                        <Brain size={13} color={theme.accent} />
+                        <span style={{ fontSize: "13px", fontWeight: "600", color: theme.textPrimary }}>
+                          {labels[category]}
+                        </span>
+                        <span style={{ fontSize: "11px", color: theme.textMuted }}>
+                          ({items.length})
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        {items.map((item, idx) => (
+                          <div
+                            key={idx}
+                            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px", background: theme.bgInput, borderRadius: "6px" }}
+                          >
+                            <span style={{ flex: 1, fontSize: "13px", color: theme.textSecondary }}>
+                              {item}
+                            </span>
+                            <button
+                              onClick={() => handleRemoveMemory(category, item)}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted }}
+                              onMouseEnter={(e) => { e.currentTarget.style.color = theme.error; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.color = theme.textMuted; }}
+                              title="Remove from memory"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {Object.values(memoryData).every((arr) => !arr || arr.length === 0) &&
+                  Object.keys(knowledgeIndex).length === 0 && (
+                    <div
+                      style={{
+                        ...styles.preview,
+                        background: theme.bgCard,
+                        border: `1px solid ${theme.border}`,
+                        minHeight: "150px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "10px",
+                      }}
+                    >
+                      <Brain size={32} color={theme.textMuted} />
+                      <span style={{ color: theme.textMuted, fontSize: "13px" }}>
+                        No memory yet. Add something above or use /remember in chat.
+                      </span>
+                    </div>
+                  )}
+              </div>
+            )}
+
+            {/* ═══ STRUCTURE TAB ═══ */}
+            {activeTab === "structure" && (
+              <div style={styles.section}>
+                <div style={styles.sectionHeader}>
+                  <span style={{ ...styles.sectionTitle, color: theme.textPrimary }}>
+                    Project Structure
+                  </span>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      style={{ ...styles.editBtn, background: theme.bgHover, border: `1px solid ${theme.border}`, color: theme.textSecondary }}
+                      onClick={loadProjectStructure}
+                    >
+                      <RefreshCw size={13} /> Refresh
+                    </button>
+                    {projectStructure.length > 0 && (
+                      <button
+                        style={{ ...styles.editBtn, background: theme.errorBg, border: `1px solid ${theme.error}`, color: theme.error }}
+                        onClick={handleClearStructure}
+                      >
+                        <Trash2 size={13} /> Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p style={{ ...styles.sectionDesc, color: theme.textMuted }}>
+                  Project structure and file creation progress.
+                </p>
+
+                {/* Progress Bar */}
+                {projectStructure.length > 0 && (
+                  <div style={{ background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "16px", marginBottom: "16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <span style={{ fontSize: "14px", fontWeight: "600", color: theme.textPrimary }}>
+                        Progress: {structureStats.completed}/{structureStats.total} files ({structureStats.percentage}%)
+                      </span>
+                    </div>
+                    <div style={{ width: "100%", height: "8px", background: theme.bgHover, borderRadius: "4px", overflow: "hidden" }}>
+                      <div style={{
+                        width: `${structureStats.percentage}%`,
+                        height: "100%",
+                        background: structureStats.percentage === 100 ? theme.success : theme.accent,
+                        transition: "width 0.3s ease",
+                      }} />
+                    </div>
+                    <div style={{ display: "flex", gap: "16px", marginTop: "12px", fontSize: "12px" }}>
+                      <span style={{ color: theme.success }}>✅ Completed: {structureStats.completed}</span>
+                      <span style={{ color: "#f59e0b" }}>⏳ In Progress: {structureStats.inProgress}</span>
+                      <span style={{ color: theme.textMuted }}>⏸️ Pending: {structureStats.pending}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Structure Tree */}
+                {projectStructure.length === 0 ? (
+                  <div style={{ ...styles.empty, background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "40px" }}>
+                    <Folder size={32} color={theme.textMuted} />
+                    <span style={{ color: theme.textMuted, fontSize: "13px" }}>
+                      No structure defined yet. Ask the agent to create a project structure.
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "16px" }}>
+                    {buildStructureTree(projectStructure, theme)}
+                  </div>
+                )}
+
+                {/* Legend */}
+                <div style={{ marginTop: "16px", padding: "12px", background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "8px" }}>
+                  <span style={{ fontSize: "12px", color: theme.textMuted }}>
+                    Legend:
+                    <span style={{ color: theme.success, marginLeft: "8px" }}>✅ Completed</span>
+                    <span style={{ color: "#f59e0b", marginLeft: "8px" }}>⏳ In Progress</span>
+                    <span style={{ color: theme.textMuted, marginLeft: "8px" }}>⏸️ Pending</span>
                   </span>
                 </div>
-                <button
-                  onClick={() => handleDeleteKnowledgeIndex(fileName)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: theme.textMuted,
-                    padding: "4px",
-                    borderRadius: "4px",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = theme.error; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = theme.textMuted; }}
-                  title="Remove from index"
-                >
-                  <Trash2 size={12} />
-                </button>
               </div>
-              <p style={{ fontSize: "12px", color: theme.textSecondary, margin: "0 0 4px 0", lineHeight: "1.5" }}>
-                {data.summary}
-              </p>
-              <span style={{ fontSize: "10px", color: theme.textMuted }}>
-                Added: {new Date(data.addedAt).toLocaleDateString()}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-
-    {/* ═══ ADD MEMORY INPUT ═══ */}
-    <div style={{ ...styles.preview, background: theme.bgCard, border: `1px solid ${theme.border}`, display: "flex", gap: "8px", alignItems: "center", padding: "12px" }}>
-      <select
-        value={newMemoryCategory}
-        onChange={(e) => setNewMemoryCategory(e.target.value)}
-        style={{ padding: "6px", borderRadius: "6px", border: `1px solid ${theme.border}`, background: theme.bgInput, color: theme.textPrimary }}
-      >
-        <option value="preferences">Preferences</option>
-        <option value="projectDecisions">Decisions</option>
-        <option value="completedTasks">Tasks</option>
-        <option value="notes">Notes</option>
-      </select>
-      <input
-        value={newMemoryItem}
-        onChange={(e) => setNewMemoryItem(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && handleAddMemory()}
-        placeholder="Type to remember..."
-        style={{ flex: 1, padding: "8px", borderRadius: "6px", border: `1px solid ${theme.border}`, background: theme.bgInput, color: theme.textPrimary, outline: "none" }}
-      />
-      <button
-        onClick={handleAddMemory}
-        disabled={!newMemoryItem.trim() || addingMemory}
-        style={{
-          padding: "8px 16px",
-          borderRadius: "6px",
-          border: "none",
-          background: newMemoryItem.trim() ? theme.accent : theme.bgHover,
-          color: newMemoryItem.trim() ? "#fff" : theme.textMuted,
-          cursor: "pointer",
-          fontWeight: "600",
-        }}
-      >
-        {addingMemory ? "..." : "Add"}
-      </button>
-    </div>
-
-    {/* ═══ EXISTING MEMORY CATEGORIES ═══ */}
-    {Object.entries(memoryData).map(([category, items]) => {
-      if (!items || items.length === 0) return null;
-      const labels = {
-        preferences: "User Preferences",
-        projectDecisions: "Project Decisions",
-        completedTasks: "Completed Tasks",
-        notes: "Notes",
-      };
-      return (
-        <div
-          key={category}
-          style={{ background: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "12px" }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
-            <Brain size={13} color={theme.accent} />
-            <span style={{ fontSize: "13px", fontWeight: "600", color: theme.textPrimary }}>
-              {labels[category]}
-            </span>
-            <span style={{ fontSize: "11px", color: theme.textMuted }}>
-              ({items.length})
-            </span>
+            )}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            {items.map((item, idx) => (
-              <div
-                key={idx}
-                style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px", background: theme.bgInput, borderRadius: "6px" }}
-              >
-                <span style={{ flex: 1, fontSize: "13px", color: theme.textSecondary }}>
-                  {item}
-                </span>
-                <button
-                  onClick={() => handleRemoveMemory(category, item)}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: theme.textMuted }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = theme.error; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = theme.textMuted; }}
-                  title="Remove from memory"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    })}
-
-    {Object.values(memoryData).every((arr) => !arr || arr.length === 0) &&
-     Object.keys(knowledgeIndex).length === 0 && (
-      <div
-        style={{
-          ...styles.preview,
-          background: theme.bgCard,
-          border: `1px solid ${theme.border}`,
-          minHeight: "150px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "10px",
-        }}
-      >
-        <Brain size={32} color={theme.textMuted} />
-        <span style={{ color: theme.textMuted, fontSize: "13px" }}>
-          No memory yet. Add something above or use /remember in chat.
-        </span>
-      </div>
-    )}
-  </div>
-)}
-         </div>
         </div>
       </div>
     </div>
   );
 }
-
 // ═══════════════════════════════════════════════════════
 // STYLES
 // ═══════════════════════════════════════════════════════

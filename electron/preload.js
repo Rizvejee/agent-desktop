@@ -90,6 +90,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("delete-knowledge-index", { projectId, fileName }),
 
     // ═══════════════════════════════════════════════════════
+  // 🆕 Project Structure
+  // ═══════════════════════════════════════════════════════
+  getProjectStructure: (projectId) =>
+    ipcRenderer.invoke("get-project-structure", { projectId }),
+  
+  clearProjectStructure: (projectId) =>
+    ipcRenderer.invoke("clear-project-structure", { projectId }),
+
+    // ═══════════════════════════════════════════════════════
   // 🆕 Chat Summary (نئی!)
   // ═══════════════════════════════════════════════════════
   getChatSummary: (projectId) =>

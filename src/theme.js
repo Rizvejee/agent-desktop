@@ -31,8 +31,8 @@ export const themes = {
     errorBg: "#FEF2F2",      // Red 50
     
     // Messages
-    msgUser: "#6366F1",      // Indigo 500
-    msgUserText: "#FFFFFF",
+    msgUser: "#dbeafe",      // Indigo 500
+    msgUserText: "#1E293B",
     msgAgent: "#1E293B",     // Slate 800
     msgAgentText: "#F8FAFC",
     msgAgentBorder: "#334155",

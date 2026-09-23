@@ -134,8 +134,8 @@ class ToolHandler {
           properties: {
             category: {
               type: "string",
-              description: "Category: preferences, projectDecisions, completedTasks, notes",
-              enum: ["preferences", "projectDecisions", "completedTasks", "notes"],
+              description: "Category: preferences, projectDecisions, completedTasks, notes, projectStructure",
+              enum: ["preferences", "projectDecisions", "completedTasks", "notes", "projectStructure"],
             },
             item: {
               type: "string",
@@ -271,8 +271,8 @@ class ToolHandler {
 
           if (!this.terminal.isAllowed(toolInput.command)) {
             return `❌ Command not allowed: ${toolInput.command}\n` +
-                   `Reason: Command is not in the allowed list.\n` +
-                   `Allowed commands: npm, node, yarn, pnpm, ls, dir, echo, cat, pwd`;
+              `Reason: Command is not in the allowed list.\n` +
+              `Allowed commands: npm, node, yarn, pnpm, ls, dir, echo, cat, pwd`;
           }
 
           const cmdResult = await this.terminal.run(toolInput.command);

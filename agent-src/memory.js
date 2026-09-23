@@ -396,6 +396,78 @@ class Memory {
   async waitForSave() {
     await this.writeQueue;
   }
+
+    // ═══════════════════════════════════════════════════════
+  // 📋 PROJECT STRUCTURE TRACKING
+  // ═══════════════════════════════════════════════════════
+  
+  saveProjectStructure(structure) {
+    this.data.projectStructure = structure.map(item => ({
+      path: item.path,
+      purpose: item.purpose || "",
+      status: item.status || "pending",
+      createdAt: new Date().toISOString(),
+      completedAt: null,
+    }));
+    this.saveMemory();
+    return `✅ Structure saved: ${structure.length} files`;
+  }
+
+  markFileComplete(filePath) {
+    if (!this.data.projectStructure) return "❌ No structure found";
+    
+    const file = this.data.projectStructure.find(f => f.path === filePath);
+    if (file) {
+      file.status = "completed";
+      file.completedAt = new Date().toISOString();
+      this.saveMemory();
+      return `✅ ${filePath} marked as complete`;
+    }
+    return `❌ File not found: ${filePath}`;
+  }
+
+  markFileInProgress(filePath) {
+    if (!this.data.projectStructure) return "❌ No structure found";
+    
+    const file = this.data.projectStructure.find(f => f.path === filePath);
+    if (file) {
+      file.status = "in-progress";
+      this.saveMemory();
+      return `⏳ ${filePath} marked as in-progress`;
+    }
+    return `❌ File not found: ${filePath}`;
+  }
+
+  getNextPendingFile() {
+    if (!this.data.projectStructure) return null;
+    return this.data.projectStructure.find(f => f.status === "pending") || null;
+  }
+
+  getProjectStructure() {
+    return this.data.projectStructure || [];
+  }
+
+  getStructureStats() {
+    const structure = this.data.projectStructure || [];
+    const total = structure.length;
+    const completed = structure.filter(f => f.status === "completed").length;
+    const inProgress = structure.filter(f => f.status === "in-progress").length;
+    const pending = structure.filter(f => f.status === "pending").length;
+    
+    return {
+      total,
+      completed,
+      inProgress,
+      pending,
+      percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+    };
+  }
+
+  clearProjectStructure() {
+    this.data.projectStructure = [];
+    this.saveMemory();
+    return "✅ Structure cleared";
+  }
 }
 
 module.exports = Memory;

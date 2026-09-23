@@ -648,6 +648,63 @@ ipcMain.handle("delete-knowledge-index", async (event, { projectId, fileName }) 
 });
 
 // ═══════════════════════════════════════════════════════
+// 🆕 IPC: PROJECT STRUCTURE
+// ═══════════════════════════════════════════════════════
+ipcMain.handle("get-project-structure", async (event, { projectId }) => {
+  try {
+    const memoryFile = path.join(getProjectDir(projectId), "agent-memory.json");
+    
+    if (!fs.existsSync(memoryFile)) {
+      return { 
+        success: true, 
+        structure: [], 
+        stats: { total: 0, completed: 0, inProgress: 0, pending: 0, percentage: 0 } 
+      };
+    }
+    
+    const data = JSON.parse(fs.readFileSync(memoryFile, "utf-8"));
+    const structure = data.projectStructure || [];
+    
+    const total = structure.length;
+    const completed = structure.filter(f => f.status === "completed").length;
+    const inProgress = structure.filter(f => f.status === "in-progress").length;
+    const pending = structure.filter(f => f.status === "pending").length;
+    
+    return {
+      success: true,
+      structure,
+      stats: {
+        total,
+        completed,
+        inProgress,
+        pending,
+        percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+      },
+    };
+  } catch (error) {
+    return { success: false, error: error.message, structure: [] };
+  }
+});
+
+ipcMain.handle("clear-project-structure", async (event, { projectId }) => {
+  try {
+    const memoryFile = path.join(getProjectDir(projectId), "agent-memory.json");
+    
+    if (!fs.existsSync(memoryFile)) {
+      return { success: true };
+    }
+    
+    const data = JSON.parse(fs.readFileSync(memoryFile, "utf-8"));
+    data.projectStructure = [];
+    fs.writeFileSync(memoryFile, JSON.stringify(data, null, 2), "utf-8");
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ═══════════════════════════════════════════════════════
 // 🆕 IPC: CHAT SUMMARY (نیا!)
 // ═══════════════════════════════════════════════════════
 ipcMain.handle("get-chat-summary", async (event, { projectId }) => {
