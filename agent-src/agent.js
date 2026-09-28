@@ -22,11 +22,11 @@ const TOKEN_BUDGET = {
 // ═══════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════
-const MAX_ITERATIONS = 5;        // ایک message میں زیادہ سے زیادہ tool calls
-const MAX_TOOL_OUTPUT = 8000;     // Tool result کی زیادہ سے زیادہ لمبائی
-const RECENT_MESSAGES = 5;        // ✅ 10 سے 5 کر دیں
-const MAX_HISTORY_TOKENS = 800;   // ✅ نیا: History کی hard limit
-const MAX_PER_MESSAGE_TOKENS = 200; // ✅ نیا: ہر message کی limit
+const MAX_ITERATIONS = 10;
+const MAX_TOOL_OUTPUT = 8000;
+const RECENT_MESSAGES = 5;
+const MAX_HISTORY_TOKENS = 800;
+const MAX_PER_MESSAGE_TOKENS = 200;
 
 class Agent {
   constructor(projectPath, memoryPath) {
@@ -37,7 +37,6 @@ class Agent {
     this.toolHandler = new ToolHandler(projectPath);
     this.memory = new Memory(memoryPath || path.join(__dirname, "../memory"));
 
-    // ✅ ToolHandler کو memory کا reference دیں
     this.toolHandler.setMemory(this.memory);
 
     this.projectPath = projectPath;
@@ -47,11 +46,11 @@ class Agent {
   }
 
   // ═══════════════════════════════════════════════════════
-  // 🧠 SYSTEM PROMPT (Token budget کے ساتھ)
+  // 🧠 SYSTEM PROMPT
+  // ✅ نئے Plan Tools کی ہدایات شامل کی گئی ہیں
   // ═══════════════════════════════════════════════════════
   buildSystemPrompt(agentSettings = {}, customInstructions = "") {
     this.agentSettings = agentSettings;
-
     const name = agentSettings.name || "Coder";
     const role = agentSettings.role || "Personal AI Coding Assistant";
     const language = agentSettings.language || "Urdu";
@@ -60,18 +59,16 @@ class Agent {
       "React", "Next.js", "JavaScript", "HTML", "CSS",
     ];
 
-    // ✅ Memory سے مختصر info (آخری 3 items ہر category سے)
     const memoryStr = this.memory.getMemoryString();
-
-    // ✅ Rules کو سختی سے 200 tokens تک محدود کریں
     const truncatedRules = this.memory.truncateToTokens(rules, 200);
-
-    // ✅ Instructions کو 150 tokens تک محدود کریں
     const truncatedInstructions = customInstructions
       ? this.memory.truncateToTokens(customInstructions, 150)
       : "";
 
-    // ✅ مختصر system prompt — target: 400-500 tokens
+    // ✅ Active Plan کو system prompt میں include کریں (اگر موجود ہو)
+    const activePlan = this.memory.getActivePlan();
+    const planStr = activePlan ? this.formatPlanForPrompt(activePlan) : "";
+
     return `You are ${name}, ${role}. Reply in ${language}. Code in ENGLISH. Use JSX + INLINE STYLES.
 
 RULES: ${truncatedRules}
@@ -81,42 +78,61 @@ WORK MODE:
 - BIG tasks: Break into steps, ask before each
 - SMALL tasks: Do directly
 
-🔒 TOOL LIMIT: Max 3 tool calls per request. Priority: save_to_memory > write_file > list_files.
+🚫 NO UNSOLICITED ACTION (بہت اہم!):
+If user says "Hello", "Salam", "Hi", or asks a general question, JUST REPLY POLITELY.
+Do NOT generate code, do NOT call tools unless a specific coding task is given.
 
-📋 STRUCTURE FIRST:
-1. Create folders+files list with paths+purposes
-2. save_to_memory(category="projectStructure", item=JSON array)
-3. Show tree to user, ask "Step 1 شروع کروں؟"
-4. Strict order — no skipping
-5. One file per request — complete code
-6. After each file: save_to_memory("✅ path completed"), ask for next
-
+📋 SMART EXECUTION (Context Priority):
+1. CHECK MEMORY FIRST: Read the MEMORY section below.
+2. CHECK ACTUAL FILES ONCE: Use list_files ONLY ONCE at the start of a task. Do NOT call list_files repeatedly for every step.
+3. NEVER duplicate files — if a file exists, read it and modify it.
+4. ACTUAL PROJECT FILES ARE THE SOURCE OF TRUTH, not any plan.
+5. CONSERVE TOOL CALLS: Each tool call counts. Do not waste iterations on redundant list_files calls.
+${planStr ? `\n📋 ACTIVE PLAN (follow this):\n${planStr}\n` : ""}
 🚫 NO UNNECESSARY READS: read_file only when user explicitly asks or bug fix needed.
-
-📁 LIST ONCE: list_files only once at start. Save structure in memory. Never call again.
-
+📁 LIST ONCE: list_files only once at start of a task.
 🎯 ONE FILE AT A TIME: ❌ write multiple files | ✅ write one file completely
 
-🧠 AUTO-MEMORY: save_to_memory when: user preference, decision made, task completed, bug fixed. Categories: preferences, projectDecisions, completedTasks, notes.
+🧠 AUTO-MEMORY: save_to_memory when: user preference, decision made, task completed, bug fixed.
+Categories: preferences, projectDecisions, completedTasks, notes.
+❌ DO NOT save Project Plan in 'projectDecisions'. Use save_plan tool instead.
 
-📚 KNOWLEDGE FILES: When "--- FILE:" seen → read → index_knowledge_file (100 words summary) → if plan, break into steps → save_to_memory each step.
+📋 PLANNING TOOLS (بہت اہم!):
+When user asks to "plan", "break down task", "make roadmap", or "create steps":
+1. Use 'save_plan' tool with task_description and steps array → creates active-plan.json file
+2. Use 'update_plan_step' tool to mark steps as done/in-progress/pending
+3. Use 'get_plan' tool to check current plan status
+❌ NEVER write plan steps in chat text without calling save_plan tool!
+❌ NEVER save plan in projectDecisions memory category!
 
-🛠️ TOOLS: write_file, read_file, list_files, search_files, delete_file, run_command, save_to_memory, index_knowledge_file, search_knowledge, summarize_chat.
+🛠️ TOOLS: write_file, read_file, list_files, search_files, delete_file, run_command, save_to_memory, summarize_chat, save_plan, update_plan_step, get_plan.
 
 EXPERTISE: ${technologies.join(", ")}
 
 MEMORY:
 ${memoryStr}
-⚡ REMEMBER: Max 3 tools | Structure first | One file at a time | No unnecessary reads | Ask permission before next step`;
+
+FINAL CHECK: Did I check memory? Did I check actual files? Am I duplicating? If yes, STOP.`;
+  }
+
+  // ✅ Active Plan کو system prompt کے لیے format کریں
+  formatPlanForPrompt(plan) {
+    if (!plan || !plan.steps) return "";
+    const progress = this.memory.getPlanProgress();
+    let str = `Task: ${plan.taskDescription || "Untitled"}\n`;
+    str += `Progress: ${progress.done}/${progress.total} (${progress.percentage}%)\n`;
+    str += `Steps:\n`;
+    plan.steps.forEach((step, i) => {
+      const icon = step.status === "done" ? "✅" : step.status === "in-progress" ? "⏳" : "⏸️";
+      str += `${icon} ${i + 1}. ${step.description || step}\n`;
+    });
+    return str;
   }
 
   getDefaultRules() {
     return `Always write clean, readable and reusable code.
-Follow DRY principles and existing project architecture.
 Use JSX + INLINE STYLES.
-Reply in urdu. Code in ENGLISH.
-Do not add unnecessary dependencies.
-Keep explanations concise.`;
+Reply in urdu. Code in ENGLISH.`;
   }
 
   // ═══════════════════════════════════════════════════════
@@ -129,68 +145,53 @@ Keep explanations concise.`;
   // ═══════════════════════════════════════════════════════
   // 📚 SMART KNOWLEDGE RETRIEVAL
   // ═══════════════════════════════════════════════════════
-
-  /**
-   * User message کے مطابق relevant knowledge files ڈھونڈیں
-   */
   getSmartKnowledge(userMessage) {
     const index = this.memory.getKnowledgeIndex();
     const entries = Object.entries(index);
-
     if (entries.length === 0) return "";
 
-    // User message سے keywords نکالیں
     const keywords = userMessage
       .toLowerCase()
       .split(/\s+/)
       .filter(w => w.length > 2);
 
-    // Relevant files ڈھونڈیں
     const relevant = entries.filter(([fileName, data]) => {
       const searchText = `${fileName} ${data.summary}`.toLowerCase();
       return keywords.some(word => searchText.includes(word));
     });
 
-    // اگر کوئی relevant نہ ملے تو سب files کی summaries دکھائیں
     const filesToShow = relevant.length > 0 ? relevant : entries.slice(0, 3);
 
     let result = "\n═══════════════════════════════════════\n";
     result += "📚 RELEVANT KNOWLEDGE FILES\n";
-    result += "═══════════════════════════════════════\n\n";
-
+    result += "═══════════════════════════════════════\n";
     filesToShow.forEach(([fileName, data]) => {
-      result += `📄 ${fileName}\n   ${data.summary}\n\n`;
+      result += `📄 ${fileName}\n${data.summary}\n`;
     });
 
-    // Token budget check
     const tokens = this.memory.estimateTokens(result);
     if (tokens > TOKEN_BUDGET.knowledge) {
       result = this.memory.truncateToTokens(result, TOKEN_BUDGET.knowledge);
     }
-
     return result;
   }
 
   // ═══════════════════════════════════════════════════════
-  // 💬 SMART CHAT HISTORY (Strict Token Limits)
+  // 💬 SMART CHAT HISTORY
   // ═══════════════════════════════════════════════════════
   getSmartHistory() {
     const history = this.conversationHistory;
-
     if (history.length === 0) return [];
 
-    // ✅ Step 1: ہر message کو individually truncate کریں
     const truncatedHistory = history.map((msg) => ({
       ...msg,
       content: this.memory.truncateToTokens(msg.content, MAX_PER_MESSAGE_TOKENS),
     }));
 
-    // ✅ Step 2: اگر history 5 سے زیادہ ہے تو summary بنائیں
     if (truncatedHistory.length > RECENT_MESSAGES) {
       const recent = truncatedHistory.slice(-RECENT_MESSAGES);
       const oldMessages = truncatedHistory.slice(0, -RECENT_MESSAGES);
 
-      // پرانی messages کا compact summary
       const compactSummary = oldMessages
         .filter(m => m.role !== "system")
         .slice(-5)
@@ -210,48 +211,34 @@ Keep explanations concise.`;
           role: "assistant",
           content: "سمجھ گیا، جاری رکھتے ہیں۔",
         };
-
-        // ✅ Step 3: Total history کو hard limit تک truncate کریں
         return this.enforceHistoryLimit([summaryMessage, ackMessage, ...recent]);
       }
-
       return this.enforceHistoryLimit(recent);
     }
 
-    // ✅ Step 4: چھوٹی history کو بھی limit میں رکھیں
     return this.enforceHistoryLimit(truncatedHistory);
   }
 
-  // ═══════════════════════════════════════════════════════
-  // 📏 HISTORY LIMIT ENFORCER (Strict 800 tokens)
-  // ═══════════════════════════════════════════════════════
   enforceHistoryLimit(history) {
     if (!history || history.length === 0) return [];
 
-    // Total tokens calculate کریں
     let totalTokens = history.reduce((sum, msg) =>
       sum + this.memory.estimateTokens(msg.content), 0
     );
 
-    // اگر limit میں ہے تو return کریں
     if (totalTokens <= MAX_HISTORY_TOKENS) {
       return history;
     }
 
     console.log(`⚠️ History over limit: ${totalTokens}/${MAX_HISTORY_TOKENS}. Truncating...`);
 
-    // ✅ Strategy: آخری messages کو رکھیں، پہلے truncate کریں
     const result = [...history];
 
-    // پہلے پہلی message کو progressively چھوٹا کریں
     while (totalTokens > MAX_HISTORY_TOKENS && result.length > 2) {
-      // پہلی message کو آدھا کریں
       const first = result[0];
       const currentLength = first.content.length;
       const newLength = Math.floor(currentLength / 2);
-
       if (newLength < 20) {
-        // بہت چھوٹی ہو گئی — ہٹا دیں
         result.shift();
       } else {
         result[0] = {
@@ -259,14 +246,11 @@ Keep explanations concise.`;
           content: first.content.slice(0, newLength) + "...",
         };
       }
-
-      // Recalculate
       totalTokens = result.reduce((sum, msg) =>
         sum + this.memory.estimateTokens(msg.content), 0
       );
     }
 
-    // اگر ابھی بھی زیادہ ہے تو صرف آخری 2 messages رکھیں
     if (totalTokens > MAX_HISTORY_TOKENS && result.length > 2) {
       return result.slice(-2).map(msg => ({
         ...msg,
@@ -277,38 +261,29 @@ Keep explanations concise.`;
     return result;
   }
 
-  // ═══════════════════════════════════════════════════════
-  // 📏 TRIM CONVERSATION HISTORY
-  // ═══════════════════════════════════════════════════════
   trimHistory() {
-    // اگر history بہت لمبی ہو جائے تو auto-summarize کا reminder
     if (this.conversationHistory.length > RECENT_MESSAGES * 2) {
       console.log("💬 History is getting long. Agent should use summarize_chat tool.");
     }
   }
 
-  // ═══════════════════════════════════════════════════════
-  // 📏 TRUNCATE LONG TOOL OUTPUTS
-  // ═══════════════════════════════════════════════════════
   truncateToolOutput(output) {
     const str = String(output);
     if (str.length <= MAX_TOOL_OUTPUT) return str;
-
     const half = Math.floor(MAX_TOOL_OUTPUT / 2);
     return (
       str.slice(0, half) +
-      `\n\n... [truncated ${str.length - MAX_TOOL_OUTPUT} characters] ...\n\n` +
+      `\n... [truncated ${str.length - MAX_TOOL_OUTPUT} characters] ...\n` +
       str.slice(-half)
     );
   }
 
   // ═══════════════════════════════════════════════════════
-  // 💬 MAIN CHAT METHOD (Fixed — const/let issues)
+  // 💬 MAIN CHAT METHOD
   // ═══════════════════════════════════════════════════════
   async chat(userMessage, onChunk = null, customInstructions = "") {
     this.trimHistory();
 
-    // ✅ User message کو token budget کے مطابق truncate کریں
     const truncatedUserMessage = this.memory.truncateToTokens(
       userMessage,
       TOKEN_BUDGET.userMessage
@@ -319,18 +294,14 @@ Keep explanations concise.`;
       content: truncatedUserMessage,
     });
 
-    // ✅ Smart knowledge retrieval
     const knowledgeContext = this.getSmartKnowledge(userMessage);
 
-    // ✅ System prompt refresh (memory changes کے ساتھ)
     if (customInstructions) {
       this.refreshSystemPrompt(customInstructions);
     }
 
-    // ✅ Smart history
     let smartHistory = this.getSmartHistory();
 
-    // ✅ Token budget check
     const systemTokens = this.memory.estimateTokens(this.systemPrompt);
     let historyTokens = smartHistory.reduce((sum, msg) =>
       sum + this.memory.estimateTokens(msg.content), 0
@@ -347,14 +318,11 @@ Keep explanations concise.`;
     console.log(`   User: ${userTokens}/${TOKEN_BUDGET.userMessage}`);
     console.log(`   Total: ${totalTokens}/${TOKEN_BUDGET.total}`);
 
-    // اگر total budget سے زیادہ ہو تو history truncate کریں
     if (totalTokens > TOKEN_BUDGET.total) {
       const excess = totalTokens - TOKEN_BUDGET.total;
       console.log(`⚠️ Over budget by ${excess} tokens. Truncating history...`);
-
-      // History کو progressively truncate کریں
       while (smartHistory.length > 4 && totalTokens > TOKEN_BUDGET.total) {
-        smartHistory = smartHistory.slice(2); // پہلے 2 messages ہٹائیں
+        smartHistory = smartHistory.slice(2);
         historyTokens = smartHistory.reduce((sum, msg) =>
           sum + this.memory.estimateTokens(msg.content), 0
         );
@@ -369,7 +337,6 @@ Keep explanations concise.`;
     ];
 
     let iterations = 0;
-
     while (iterations < MAX_ITERATIONS) {
       iterations++;
 
@@ -382,7 +349,6 @@ Keep explanations concise.`;
         response = await this.modelClient.sendMessageWithTools(messages, tools);
       }
 
-      // ✅ Tool calls handling
       if (response.finish_reason === "tool_calls" && response.message.tool_calls) {
         if (onChunk) onChunk(null);
 
@@ -395,11 +361,22 @@ Keep explanations concise.`;
         for (const toolCall of response.message.tool_calls) {
           const toolName = toolCall.function.name;
           let toolInput;
-
           try {
-            toolInput = JSON.parse(toolCall.function.arguments);
+            let args = toolCall.function.arguments;
+            if (args.startsWith("```json")) {
+              args = args.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
+            } else if (args.startsWith("```")) {
+              args = args.replace(/^```\n?/, "").replace(/\n?```$/, "").trim();
+            }
+            toolInput = JSON.parse(args);
           } catch (e) {
-            toolInput = {};
+            console.error("❌ Failed to parse tool arguments:", toolCall.function.arguments);
+            messages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: `Error: Invalid JSON in tool arguments. You must provide valid JSON format. Original error: ${e.message}. Please fix your JSON and try again.`,
+            });
+            continue;
           }
 
           const toolResult = await this.toolHandler.executeTool(toolName, toolInput);
@@ -411,12 +388,13 @@ Keep explanations concise.`;
             content: truncatedResult,
           });
 
-          // ✅ اگر memory save ہوئی تو system prompt refresh کریں
+          // ✅ جب plan/memory/knowledge tool call ہو تو system prompt refresh کریں
           if (toolName === "save_to_memory" ||
-            toolName === "index_knowledge_file" ||
-            toolName === "summarize_chat") {
+              toolName === "index_knowledge_file" ||
+              toolName === "summarize_chat" ||
+              toolName === "save_plan" ||
+              toolName === "update_plan_step") {
             this.refreshSystemPrompt(customInstructions);
-            // ✅ messages[0] کی content update کریں (array itself نہیں)
             messages[0] = {
               ...messages[0],
               content: this.systemPrompt + this.getSmartKnowledge(userMessage),
@@ -426,13 +404,11 @@ Keep explanations concise.`;
         continue;
       }
 
-      // ✅ Final response
       const finalResponse = response.message.content;
       this.conversationHistory.push({
         role: "assistant",
         content: finalResponse,
       });
-
       this.trimHistory();
       return finalResponse;
     }
@@ -450,33 +426,26 @@ Keep explanations concise.`;
     switch (command) {
       case "/list":
         return this.fileSystem.listFiles(parts[1] || "");
-
       case "/read":
         if (!parts[1]) return "❌ Usage: /read src/App.js";
         return this.fileSystem.readFile(parts[1]);
-
       case "/create":
         if (!parts[1]) return "❌ Usage: /create src/Button.js";
         return this.fileSystem.createFile(parts[1]);
-
       case "/delete":
         if (!parts[1]) return "❌ Usage: /delete src/Button.js";
         return this.fileSystem.deleteFile(parts[1]);
-
       case "/search":
         if (!parts[1]) return "❌ Usage: /search Button";
         return this.fileSystem.searchFiles(parts[1]);
-
       case "/run": {
         if (!parts[1]) return "❌ Usage: /run npm install";
         const cmd = parts.slice(1).join(" ");
         const result = await this.terminal.run(cmd);
         return result.output;
       }
-
       case "/context":
         return this.projectContext.getContextString();
-
       case "/refresh":
         this.projectContext.context = null;
         this.refreshSystemPrompt();
@@ -485,21 +454,18 @@ Keep explanations concise.`;
       // ─── Memory Commands ───────────────────────────
       case "/remember": {
         if (parts.length < 3) {
-          return `❌ Usage: /remember [category] [text]
-Categories: preferences, projectDecisions, completedTasks, notes
-Example: /remember preferences "Always use functional components"`;
+          return `❌ Usage: /remember [category] [text]\nCategories: preferences, projectDecisions, completedTasks, notes\nExample: /remember preferences "Always use functional components"`;
         }
         const category = parts[1];
         let item = parts.slice(2).join(" ");
         if ((item.startsWith('"') && item.endsWith('"')) ||
-          (item.startsWith("'") && item.endsWith("'"))) {
+            (item.startsWith("'") && item.endsWith("'"))) {
           item = item.slice(1, -1);
         }
         const result = this.memory.remember(category, item);
         this.refreshSystemPrompt();
         return result;
       }
-
       case "/forget": {
         if (parts.length < 3) return "❌ Usage: /forget [category] [text]";
         const category = parts[1];
@@ -508,32 +474,26 @@ Example: /remember preferences "Always use functional components"`;
         this.refreshSystemPrompt();
         return result;
       }
-
       case "/memory":
         return this.memory.getMemoryString();
-
       case "/memory-clear":
         return this.memory.clearAll();
 
-      // ─── Knowledge Index Commands (نئے!) ───────────
+      // ─── Knowledge Index Commands ──────────────────
       case "/knowledge-index": {
         const index = this.memory.getKnowledgeIndex();
         const entries = Object.entries(index);
-
         if (entries.length === 0) {
           return "ℹ️ کوئی knowledge files indexed نہیں ہیں۔";
         }
-
-        let text = `📚 KNOWLEDGE INDEX (${entries.length} files)\n\n`;
+        let text = `📚 KNOWLEDGE INDEX (${entries.length} files)\n`;
         entries.forEach(([fileName, data]) => {
           text += `📄 ${fileName}\n`;
           text += `   ${data.summary}\n`;
-          text += `   Added: ${new Date(data.addedAt).toLocaleDateString()}\n\n`;
+          text += `   Added: ${new Date(data.addedAt).toLocaleDateString()}\n`;
         });
-
         return text;
       }
-
       case "/knowledge-clear": {
         const index = this.memory.getKnowledgeIndex();
         Object.keys(index).forEach(fileName => {
@@ -542,34 +502,31 @@ Example: /remember preferences "Always use functional components"`;
         return "✅ Knowledge index clear ہو گیا";
       }
 
-      // ─── Chat Summary Commands (نئے!) ─────────────
+      // ─── Chat Summary Commands ─────────────────────
       case "/chat-summary": {
         const summary = this.memory.getChatSummary();
-
         if (!summary.olderMessages) {
           return "ℹ️ کوئی chat summary نہیں ہے۔";
         }
-
-        return `💬 CHAT SUMMARY\n\n` +
+        return `💬 CHAT SUMMARY\n` +
           `Messages summarized: ${summary.messageCount}\n` +
-          `Last updated: ${summary.lastUpdated ? new Date(summary.lastUpdated).toLocaleString() : "N/A"}\n\n` +
+          `Last updated: ${summary.lastUpdated ? new Date(summary.lastUpdated).toLocaleString() : "N/A"}\n` +
           `Summary:\n${summary.olderMessages}`;
       }
-
       case "/chat-summary-clear":
         this.memory.clearChatSummary();
         return "✅ Chat summary clear ہو گیا";
 
-      // ─── Token Budget Info (نیا!) ─────────────────
+      // ─── Token Budget Info ─────────────────────────
       case "/budget": {
-        return `📊 TOKEN BUDGET\n\n` +
-          `Total: ${TOKEN_BUDGET.total} tokens\n\n` +
+        return `📊 TOKEN BUDGET\n` +
+          `Total: ${TOKEN_BUDGET.total} tokens\n` +
           `Allocations:\n` +
           `  System Prompt: ${TOKEN_BUDGET.systemPrompt}\n` +
           `  Project Instructions: ${TOKEN_BUDGET.projectInstructions}\n` +
           `  Knowledge: ${TOKEN_BUDGET.knowledge}\n` +
           `  Chat History: ${TOKEN_BUDGET.chatHistory}\n` +
-          `  User Message: ${TOKEN_BUDGET.userMessage}\n\n` +
+          `  User Message: ${TOKEN_BUDGET.userMessage}\n` +
           `Current usage:\n` +
           `  System: ${this.memory.estimateTokens(this.systemPrompt)}\n` +
           `  History: ${this.conversationHistory.reduce((sum, msg) =>
@@ -577,51 +534,40 @@ Example: /remember preferences "Always use functional components"`;
           `  Knowledge files: ${Object.keys(this.memory.getKnowledgeIndex()).length}`;
       }
 
-      // ─── Plan Commands ─────────────────────────────
+      // ─── Plan Commands (✅ active-plan.json سے پڑھیں گے) ─────
       case "/plan": {
-        const data = this.memory.getAll();
-        if (!data.projectDecisions || data.projectDecisions.length === 0) {
+        const plan = this.memory.getActivePlan();
+        if (!plan) {
           return "ℹ️ کوئی active plan نہیں ہے۔";
         }
-
-        let text = "📋 ACTIVE PLAN\n\n";
-        text += `Total Steps: ${data.projectDecisions.length}\n\n`;
-
-        data.projectDecisions.forEach((d, i) => {
-          text += `${i + 1}. ${d}\n`;
+        let text = "📋 ACTIVE PLAN (from active-plan.json)\n";
+        text += `Task: ${plan.taskDescription || "Untitled"}\n`;
+        text += `Created: ${new Date(plan.createdAt).toLocaleDateString()}\n`;
+        text += `Total Steps: ${plan.totalSteps}\n\n`;
+        plan.steps.forEach((step, i) => {
+          const icon = step.status === "done" ? "✅" : step.status === "in-progress" ? "⏳" : "⏸️";
+          text += `${icon} ${i + 1}. ${step.description}\n`;
         });
-
-        if (data.completedTasks && data.completedTasks.length > 0) {
-          text += "\n✅ COMPLETED:\n";
-          data.completedTasks.forEach((t) => {
-            text += `  • ${t}\n`;
-          });
-        }
-
+        const progress = this.memory.getPlanProgress();
+        text += `\n📊 Progress: ${progress.done}/${progress.total} (${progress.percentage}%)\n`;
         return text;
       }
-
       case "/status": {
-        const data = this.memory.getAll();
-        const total = data.projectDecisions?.length || 0;
-        const done = data.completedTasks?.length || 0;
-
-        if (total === 0) return "ℹ️ کوئی active plan نہیں ہے۔";
-
-        const percent = Math.round((done / total) * 100);
+        const plan = this.memory.getActivePlan();
+        if (!plan) return "ℹ️ کوئی active plan نہیں ہے۔";
+        const progress = this.memory.getPlanProgress();
         return `📊 STATUS\n` +
-          `Total steps: ${total}\n` +
-          `Completed: ${done}\n` +
-          `Progress: ${percent}%`;
+          `Task: ${plan.taskDescription || "Untitled"}\n` +
+          `Total steps: ${progress.total}\n` +
+          `Completed: ${progress.done}\n` +
+          `In Progress: ${progress.inProgress}\n` +
+          `Pending: ${progress.pending}\n` +
+          `Progress: ${progress.percentage}%`;
       }
-
       case "/reset-plan": {
-        const data = this.memory.getAll();
-        data.projectDecisions = [];
-        data.completedTasks = [];
-        this.memory.saveMemory();
+        this.memory.clearActivePlan();
         this.refreshSystemPrompt();
-        return "✅ Plan clear ہو گیا";
+        return "✅ Plan cleared";
       }
 
       // ─── Help ─────────────────────────────────────
@@ -629,46 +575,48 @@ Example: /remember preferences "Always use functional components"`;
         return `📖 Available Commands:
 
 📁 FILE COMMANDS:
-  /list [path]                - List files
-  /read [path]                - Read a file
-  /create [path]              - Create a new file
-  /delete [path]              - Delete a file
-  /search [term]              - Search files
-  /run [command]              - Run terminal command
+/list [path]                - List files
+/read [path]                - Read a file
+/create [path]              - Create a new file
+/delete [path]              - Delete a file
+/search [term]              - Search files
+/run [command]              - Run terminal command
 
 🧠 MEMORY COMMANDS:
-  /remember [category] [text] - Save to memory
-  /forget [category] [text]   - Remove from memory
-  /memory                     - Show all memory
-  /memory-clear               - Clear all memory
+/remember [category] [text] - Save to memory
+/forget [category] [text]   - Remove from memory
+/memory                     - Show all memory
+/memory-clear               - Clear all memory
 
-📚 KNOWLEDGE COMMANDS (نئے!):
-  /knowledge-index            - Show indexed files
-  /knowledge-clear            - Clear knowledge index
+📚 KNOWLEDGE COMMANDS:
+/knowledge-index            - Show indexed files
+/knowledge-clear            - Clear knowledge index
 
-💬 CHAT COMMANDS (نئے!):
-  /chat-summary               - Show chat summary
-  /chat-summary-clear         - Clear chat summary
+💬 CHAT COMMANDS:
+/chat-summary               - Show chat summary
+/chat-summary-clear         - Clear chat summary
 
-📊 BUDGET COMMAND (نیا!):
-  /budget                     - Show token budget usage
+📊 BUDGET COMMAND:
+/budget                     - Show token budget usage
 
 📋 PLAN COMMANDS:
-  /plan                       - Show active plan
-  /status                     - Show progress
-  /reset-plan                 - Clear active plan
+/plan                       - Show active plan (from active-plan.json)
+/status                     - Show progress
+/reset-plan                 - Clear active plan
 
 🔧 OTHER:
-  /context                    - Show project context
-  /refresh                    - Refresh context & memory
-  /clear                      - Clear chat history
-  /help                       - Show this help
+/context                    - Show project context
+/refresh                    - Refresh context & memory
+/clear                      - Clear chat history
+/help                       - Show this help
 
 Memory categories:
-  preferences       - How you like things done
-  projectDecisions  - Important project decisions / plan steps
-  completedTasks    - What has been built
-  notes             - General notes`;
+preferences       - How you like things done
+projectDecisions  - Important project decisions
+completedTasks    - What has been built
+notes             - General notes
+
+Note: Active Plan is stored in active-plan.json (separate from memory).`;
 
       case "/clear":
         this.conversationHistory = [];

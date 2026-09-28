@@ -4,11 +4,12 @@ const path = require("path");
 class Memory {
   constructor(memoryPath) {
     this.memoryPath = memoryPath;
-
-    // ✅ 3 الگ فائلیں — بہتر organization
+    
+    // ✅ 3 الگ فائلیں — بہتر organization (Point 10, 11, 24)
     this.memoryFile = path.join(memoryPath, "agent-memory.json");
     this.knowledgeIndexFile = path.join(memoryPath, "knowledge-index.json");
     this.chatSummaryFile = path.join(memoryPath, "chat-summary.json");
+    this.activePlanFile = path.join(memoryPath, "active-plan.json"); // ✅ نیا: Plan الگ فائل میں
 
     // ✅ Write queue — concurrent writes safe ہوں گی
     this.writeQueue = Promise.resolve();
@@ -17,12 +18,32 @@ class Memory {
     this.data = this.loadMemory();
     this.knowledgeIndex = this.loadKnowledgeIndex();
     this.chatSummary = this.loadChatSummary();
+    
+    // ✅ نیا: Active Plan کو memory سے الگ رکھنا (Point 24)
+    // یہ memory category نہیں ہے — یہ temporary working state ہے
+    this.activePlan = this.loadActivePlan();
+
+    // ✅ Backward compatibility: پرانی data سے activePlan ہٹائیں (تاکہ duplicate نہ ہو)
+    if (this.data.activePlan !== undefined) {
+      const oldPlan = this.data.activePlan;
+      delete this.data.activePlan;
+      if (oldPlan && !this.activePlan) {
+        this.activePlan = oldPlan;
+        this.saveActivePlanToFile();
+      }
+      this.saveMemory();
+    }
+
+    // ✅ Point 9: projectStructure کو مکمل ہٹائیں (Deprecated)
+    if (this.data.projectStructure !== undefined) {
+      delete this.data.projectStructure;
+      this.saveMemory();
+    }
   }
 
   // ═══════════════════════════════════════════════════════
   // 📂 LOAD METHODS
   // ═══════════════════════════════════════════════════════
-
   loadMemory() {
     const defaultData = {
       preferences: [],
@@ -30,11 +51,9 @@ class Memory {
       completedTasks: [],
       notes: [],
     };
-
     if (!fs.existsSync(this.memoryFile)) {
       return defaultData;
     }
-
     try {
       const content = fs.readFileSync(this.memoryFile, "utf-8");
       const parsed = JSON.parse(content);
@@ -48,7 +67,6 @@ class Memory {
     if (!fs.existsSync(this.knowledgeIndexFile)) {
       return {};
     }
-
     try {
       const content = fs.readFileSync(this.knowledgeIndexFile, "utf-8");
       return JSON.parse(content);
@@ -63,11 +81,9 @@ class Memory {
       lastUpdated: null,
       messageCount: 0,
     };
-
     if (!fs.existsSync(this.chatSummaryFile)) {
       return defaultSummary;
     }
-
     try {
       const content = fs.readFileSync(this.chatSummaryFile, "utf-8");
       const parsed = JSON.parse(content);
@@ -77,21 +93,40 @@ class Memory {
     }
   }
 
+  // ✅ نیا: Active Plan کو الگ فائل سے لوڈ کریں
+  loadActivePlan() {
+    if (!fs.existsSync(this.activePlanFile)) {
+      return null;
+    }
+    try {
+      return JSON.parse(fs.readFileSync(this.activePlanFile, "utf-8"));
+    } catch {
+      return null;
+    }
+  }
+
   // ═══════════════════════════════════════════════════════
   // 💾 SAVE METHODS (Queue-based — safe)
   // ═══════════════════════════════════════════════════════
-
-  saveMemory() {
+  ensureDir() {
     if (!fs.existsSync(this.memoryPath)) {
       fs.mkdirSync(this.memoryPath, { recursive: true });
     }
+  }
 
+  saveMemory() {
+    this.ensureDir();
     this.writeQueue = this.writeQueue.then(() => {
       return new Promise((resolve) => {
         try {
+          // ✅ activePlan اور projectStructure کو memory file میں save نہ کریں
+          const dataToSave = { ...this.data };
+          delete dataToSave.activePlan;
+          delete dataToSave.projectStructure;
+          
           fs.writeFileSync(
             this.memoryFile,
-            JSON.stringify(this.data, null, 2),
+            JSON.stringify(dataToSave, null, 2),
             "utf-8"
           );
         } catch (error) {
@@ -100,15 +135,11 @@ class Memory {
         resolve();
       });
     });
-
     return this.writeQueue;
   }
 
   saveKnowledgeIndex() {
-    if (!fs.existsSync(this.memoryPath)) {
-      fs.mkdirSync(this.memoryPath, { recursive: true });
-    }
-
+    this.ensureDir();
     this.writeQueue = this.writeQueue.then(() => {
       return new Promise((resolve) => {
         try {
@@ -123,15 +154,11 @@ class Memory {
         resolve();
       });
     });
-
     return this.writeQueue;
   }
 
-  saveChatSummary() {
-    if (!fs.existsSync(this.memoryPath)) {
-      fs.mkdirSync(this.memoryPath, { recursive: true });
-    }
-
+  saveChatSummaryToFile() {
+    this.ensureDir();
     this.writeQueue = this.writeQueue.then(() => {
       return new Promise((resolve) => {
         try {
@@ -146,19 +173,55 @@ class Memory {
         resolve();
       });
     });
+    return this.writeQueue;
+  }
 
+  // ✅ نیا: Active Plan کو الگ فائل میں save کریں
+  saveActivePlanToFile() {
+    this.ensureDir();
+    this.writeQueue = this.writeQueue.then(() => {
+      return new Promise((resolve) => {
+        try {
+          if (this.activePlan) {
+            fs.writeFileSync(
+              this.activePlanFile,
+              JSON.stringify(this.activePlan, null, 2),
+              "utf-8"
+            );
+          } else if (fs.existsSync(this.activePlanFile)) {
+            // اگر plan null ہے تو فائل ڈیلیٹ کر دیں
+            fs.unlinkSync(this.activePlanFile);
+          }
+        } catch (error) {
+          console.error("❌ Active plan save error:", error);
+        }
+        resolve();
+      });
+    });
     return this.writeQueue;
   }
 
   // ═══════════════════════════════════════════════════════
-  // 🧠 AGENT MEMORY (preferences, decisions, tasks, notes)
+  // 🧠 AGENT MEMORY (صرف 4 categories - Point 7, 24)
   // ═══════════════════════════════════════════════════════
-
   remember(category, item) {
+    // ✅ Safety: activePlan کو memory میں save نہ ہونے دیں (Point 24)
+    if (category === "activePlan") {
+      return `❌ Error: activePlan is not a memory category. Use saveActivePlan() instead.`;
+    }
+    // ✅ Safety: projectStructure deprecated ہے (Point 9)
+    if (category === "projectStructure") {
+      return `❌ Error: projectStructure is deprecated. Use actual project files instead.`;
+    }
+    
+    const validCategories = ["preferences", "projectDecisions", "completedTasks", "notes"];
+    if (!validCategories.includes(category)) {
+      return `❌ Error: Invalid category "${category}". Use: ${validCategories.join(", ")}`;
+    }
+
     if (!this.data[category]) {
       this.data[category] = [];
     }
-
     if (!this.data[category].includes(item)) {
       this.data[category].push(item);
       this.saveMemory();
@@ -171,7 +234,6 @@ class Memory {
     if (!this.data[category]) {
       return `Nothing to forget in: ${category}`;
     }
-
     this.data[category] = this.data[category].filter((i) => i !== item);
     this.saveMemory();
     return `✅ Forgotten: ${item}`;
@@ -193,14 +255,80 @@ class Memory {
   }
 
   // ═══════════════════════════════════════════════════════
-  // 📚 KNOWLEDGE INDEX (File -> Summary mapping)
+  // 📋 ACTIVE PLAN (Memory سے الگ — Temporary State)
+  // ✅ Point 5, 24: Plan کو Memory category نہ بناؤ
   // ═══════════════════════════════════════════════════════
 
   /**
-   * Knowledge file کا index add کریں
-   * @param {string} fileName - فائل کا نام
-   * @param {string} summary - 100 الفاظ کی summary
+   * Active Plan save کریں (الگ فائل میں)
+   * @param {Object} plan - Plan object { taskDescription, totalSteps, steps: [...] }
    */
+  saveActivePlan(plan) {
+    this.activePlan = {
+      ...plan,
+      updatedAt: new Date().toISOString(),
+    };
+    this.saveActivePlanToFile();
+    return `✅ Active plan saved: ${plan.taskDescription || "Untitled"}`;
+  }
+
+  /**
+   * Active Plan حاصل کریں
+   */
+  getActivePlan() {
+    return this.activePlan;
+  }
+
+  /**
+   * Active Plan clear کریں
+   */
+  clearActivePlan() {
+    this.activePlan = null;
+    this.saveActivePlanToFile();
+    return "✅ Active plan cleared";
+  }
+
+  /**
+   * Plan کا step update کریں
+   * @param {number} stepIndex - Step number (0-based)
+   * @param {string} status - "pending" | "in-progress" | "done"
+   */
+  updatePlanStep(stepIndex, status) {
+    if (!this.activePlan || !this.activePlan.steps) {
+      return `❌ No active plan found`;
+    }
+    if (stepIndex < 0 || stepIndex >= this.activePlan.steps.length) {
+      return `❌ Invalid step index: ${stepIndex}`;
+    }
+    this.activePlan.steps[stepIndex].status = status;
+    this.activePlan.updatedAt = new Date().toISOString();
+    this.saveActivePlanToFile();
+    return `✅ Step ${stepIndex + 1} marked as ${status}`;
+  }
+
+  /**
+   * Plan کی progress حاصل کریں
+   */
+  getPlanProgress() {
+    if (!this.activePlan || !this.activePlan.steps) {
+      return null;
+    }
+    const total = this.activePlan.steps.length;
+    const done = this.activePlan.steps.filter(s => s.status === "done").length;
+    const inProgress = this.activePlan.steps.filter(s => s.status === "in-progress").length;
+    const pending = this.activePlan.steps.filter(s => s.status === "pending").length;
+    return {
+      total,
+      done,
+      inProgress,
+      pending,
+      percentage: total > 0 ? Math.round((done / total) * 100) : 0,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // 📚 KNOWLEDGE INDEX (Point 10: Memory سے الگ)
+  // ═══════════════════════════════════════════════════════
   addKnowledgeIndex(fileName, summary) {
     this.knowledgeIndex[fileName] = {
       summary: summary,
@@ -215,7 +343,6 @@ class Memory {
     if (!this.knowledgeIndex[fileName]) {
       return `❌ File not in index: ${fileName}`;
     }
-
     this.knowledgeIndex[fileName] = {
       summary: summary,
       addedAt: this.knowledgeIndex[fileName].addedAt,
@@ -238,39 +365,28 @@ class Memory {
     return this.knowledgeIndex;
   }
 
-  /**
-   * Index کو readable string میں convert کریں (Agent کے لیے)
-   */
   getKnowledgeIndexString() {
     const entries = Object.entries(this.knowledgeIndex);
     if (entries.length === 0) {
       return "No knowledge files indexed yet.";
     }
-
     const lines = ["KNOWLEDGE FILES INDEX:"];
     entries.forEach(([fileName, data]) => {
       lines.push(`- ${fileName}: ${data.summary}`);
     });
-
     return lines.join("\n");
   }
 
   // ═══════════════════════════════════════════════════════
-  // 💬 CHAT SUMMARY (Smart History)
+  // 💬 CHAT SUMMARY (Point 11: Memory سے الگ)
   // ═══════════════════════════════════════════════════════
-
-  /**
-   * پرانی messages کا summary save کریں
-   * @param {string} summary - 2-3 لائنوں کا summary
-   * @param {number} messageCount - کتنی messages summarize ہوئیں
-   */
-  saveChatSummary(summary, messageCount) {
+  saveChatSummaryData(summary, messageCount) {
     this.chatSummary = {
       olderMessages: summary,
       lastUpdated: new Date().toISOString(),
       messageCount: messageCount,
     };
-    this.saveChatSummary();
+    this.saveChatSummaryToFile();
     return `✅ Chat summary saved (${messageCount} messages)`;
   }
 
@@ -282,7 +398,6 @@ class Memory {
     if (!this.chatSummary.olderMessages) {
       return "";
     }
-
     return `EARLIER CONVERSATION SUMMARY (${this.chatSummary.messageCount} messages):\n${this.chatSummary.olderMessages}`;
   }
 
@@ -292,21 +407,17 @@ class Memory {
       lastUpdated: null,
       messageCount: 0,
     };
-    this.saveChatSummary();
+    this.saveChatSummaryToFile();
     return "✅ Chat summary cleared";
   }
 
   // ═══════════════════════════════════════════════════════
   // 📊 MEMORY STRING (Agent کے system prompt کے لیے)
+  // ✅ Point 21: Duplicate information نہ ہو (activePlan شامل نہیں)
   // ═══════════════════════════════════════════════════════
-
-  /**
-   * مختصر memory string — token-efficient
-   */
   getMemoryString() {
     const lines = [];
 
-    // Preferences — آخری 5
     if (this.data.preferences.length > 0) {
       lines.push("USER PREFERENCES:");
       const recent = this.data.preferences.slice(-5);
@@ -316,7 +427,6 @@ class Memory {
       }
     }
 
-    // Project Decisions — آخری 10
     if (this.data.projectDecisions.length > 0) {
       lines.push("");
       lines.push("PROJECT DECISIONS:");
@@ -324,7 +434,6 @@ class Memory {
       recent.forEach((d) => lines.push(`- ${d}`));
     }
 
-    // Completed Tasks — آخری 10
     if (this.data.completedTasks.length > 0) {
       lines.push("");
       lines.push("COMPLETED TASKS:");
@@ -332,7 +441,6 @@ class Memory {
       recent.forEach((t) => lines.push(`- ${t}`));
     }
 
-    // Notes — آخری 5
     if (this.data.notes.length > 0) {
       lines.push("");
       lines.push("NOTES:");
@@ -340,18 +448,19 @@ class Memory {
       recent.forEach((n) => lines.push(`- ${n}`));
     }
 
-    // Knowledge Index
     if (Object.keys(this.knowledgeIndex).length > 0) {
       lines.push("");
       lines.push(this.getKnowledgeIndexString());
     }
 
-    // Chat Summary
     const chatSummaryStr = this.getChatSummaryString();
     if (chatSummaryStr) {
       lines.push("");
       lines.push(chatSummaryStr);
     }
+
+    // ✅ REMOVED: activePlan — یہ memory نہیں ہے، الگ state ہے
+    // ✅ REMOVED: projectStructure — deprecated
 
     return lines.length > 0 ? lines.join("\n") : "No memory yet.";
   }
@@ -359,114 +468,27 @@ class Memory {
   // ═══════════════════════════════════════════════════════
   // 🎯 TOKEN BUDGET HELPERS
   // ═══════════════════════════════════════════════════════
-
-  /**
-   * Token count کا rough estimate (1 token ≈ 4 characters English, 2 Urdu)
-   */
   estimateTokens(text) {
     if (!text) return 0;
-    // Urdu characters کا count
     const urduChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
     const otherChars = text.length - urduChars;
-
-    // Urdu: ~2 chars per token, English: ~4 chars per token
     return Math.ceil(urduChars / 2 + otherChars / 4);
   }
 
-  /**
-   * Text کو specific token limit تک truncate کریں
-   */
   truncateToTokens(text, maxTokens) {
     if (!text) return "";
-
     const currentTokens = this.estimateTokens(text);
     if (currentTokens <= maxTokens) return text;
-
-    // Approximate characters to keep
     const ratio = maxTokens / currentTokens;
     const targetLength = Math.floor(text.length * ratio);
-
     return text.slice(0, targetLength) + "\n... [truncated to fit token budget]";
   }
 
   // ═══════════════════════════════════════════════════════
   // 🔄 WAIT FOR SAVE (tests کے لیے)
   // ═══════════════════════════════════════════════════════
-
   async waitForSave() {
     await this.writeQueue;
-  }
-
-    // ═══════════════════════════════════════════════════════
-  // 📋 PROJECT STRUCTURE TRACKING
-  // ═══════════════════════════════════════════════════════
-  
-  saveProjectStructure(structure) {
-    this.data.projectStructure = structure.map(item => ({
-      path: item.path,
-      purpose: item.purpose || "",
-      status: item.status || "pending",
-      createdAt: new Date().toISOString(),
-      completedAt: null,
-    }));
-    this.saveMemory();
-    return `✅ Structure saved: ${structure.length} files`;
-  }
-
-  markFileComplete(filePath) {
-    if (!this.data.projectStructure) return "❌ No structure found";
-    
-    const file = this.data.projectStructure.find(f => f.path === filePath);
-    if (file) {
-      file.status = "completed";
-      file.completedAt = new Date().toISOString();
-      this.saveMemory();
-      return `✅ ${filePath} marked as complete`;
-    }
-    return `❌ File not found: ${filePath}`;
-  }
-
-  markFileInProgress(filePath) {
-    if (!this.data.projectStructure) return "❌ No structure found";
-    
-    const file = this.data.projectStructure.find(f => f.path === filePath);
-    if (file) {
-      file.status = "in-progress";
-      this.saveMemory();
-      return `⏳ ${filePath} marked as in-progress`;
-    }
-    return `❌ File not found: ${filePath}`;
-  }
-
-  getNextPendingFile() {
-    if (!this.data.projectStructure) return null;
-    return this.data.projectStructure.find(f => f.status === "pending") || null;
-  }
-
-  getProjectStructure() {
-    return this.data.projectStructure || [];
-  }
-
-  getStructureStats() {
-    const structure = this.data.projectStructure || [];
-    const total = structure.length;
-    const completed = structure.filter(f => f.status === "completed").length;
-    const inProgress = structure.filter(f => f.status === "in-progress").length;
-    const pending = structure.filter(f => f.status === "pending").length;
-    
-    return {
-      total,
-      completed,
-      inProgress,
-      pending,
-      percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
-    };
-  }
-
-  clearProjectStructure() {
-    this.data.projectStructure = [];
-    this.saveMemory();
-    return "✅ Structure cleared";
   }
 }
 
