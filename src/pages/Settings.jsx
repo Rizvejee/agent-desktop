@@ -48,14 +48,11 @@ export default function Settings({ onClose, onThemeChange, currentTheme }) {
   
   // Agent Config States
   const [agentName, setAgentName] = useState("Coder");
-  const [agentRole, setAgentRole] = useState("Personal AI Coding Assistant");
+  const [agentRole, setAgentRole] = useState("Senior React Developer & Technical Mentor");
   const [agentLanguage, setAgentLanguage] = useState("Urdu");
   const [agentRules, setAgentRules] = useState(
     `Always write clean, readable and reusable code.
-Follow DRY principles and existing project architecture.
 Always create JSX files for components & pages with everything inline.
-Use English everywhere in the project code.
-Do not add unnecessary dependencies.
 Keep explanations concise.`
   );
   const [agentTechnologies, setAgentTechnologies] = useState([
